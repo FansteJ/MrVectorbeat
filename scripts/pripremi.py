@@ -19,10 +19,13 @@
 from mrvectorbeat import pipeline
 
 # Katalog
-pipeline.napravi_katalog()
+kat = pipeline.napravi_katalog()
+print(f"Katalog: {len(kat)} pesama, {kat['porodica'].nunique()} porodica")
 
 # Tokeni
-pipeline.napravi_tokene()
+tok = pipeline.napravi_tokene()
+print(f"Tokeni: {sum(len(t) for t in tok.values())} termina, "
+      f"{len({t for ts in tok.values() for t in ts})} razlicitih")
 
 # Trie
 pipeline.napravi_trie()

@@ -15,8 +15,16 @@
 #                 (poziva je app.py)
 # Tako aplikacija nikad ne gradi nista iznova pri svakom kliku.
 
-# OVDE IDU importi vasih modula, npr.:
-#   from mrvectorbeat import tekst, trie, indeks, ...
+import pickle
+from pathlib import Path
+
+import pandas as pd
+
+from mrvectorbeat import katalog, tekst
+
+KOREN = Path(__file__).resolve().parent.parent
+DATA = KOREN / "data"
+ARTIFACTS = KOREN / "artifacts"
 
 
 # Kolone koje zadrzavamo u katalogu. Sve ostalo iz CSV-a nam ne treba.
@@ -50,22 +58,38 @@ KOLONE = [
 def napravi_katalog():
     """Cita data/spotify_songs.csv, cisti ga i snima katalog u artifacts/.
     Vraca: tabelu kataloga."""
-    pass
+    df = pd.read_csv(DATA / "spotify_songs.csv")
+    df = katalog.samo_engleske_sa_stihovima(df)
+    df["godina"] = katalog.izdvoj_godinu(df["track_album_release_date"])
+    df["porodica"] = [katalog.kljuc_porodice(a, n)
+                      for a, n in zip(df["track_artist"], df["track_name"])]
+    df = df[KOLONE].reset_index(drop=True)
+
+    ARTIFACTS.mkdir(exist_ok=True)
+    df.to_parquet(ARTIFACTS / "katalog.parquet", index=False)
+    return df
 
 
 def ucitaj_katalog():
     """Cita gotov katalog iz artifacts/."""
-    pass
+    return pd.read_parquet(ARTIFACTS / "katalog.parquet")
 
 
 def napravi_tokene():
-    """Obradjuje stihove svake pesme i snima tokene u artifacts/."""
-    pass
+    """Obradjuje stihove svake pesme i snima tokene u artifacts/.
+    Vraca: recnik track_id -> lista termina."""
+    df = ucitaj_katalog()
+    tokeni = {tid: tekst.obradi(s) for tid, s in zip(df["track_id"], df["lyrics"])}
+
+    with open(ARTIFACTS / "tokeni.pkl", "wb") as f:
+        pickle.dump(tokeni, f)
+    return tokeni
 
 
 def ucitaj_tokene():
     """Cita gotove tokene iz artifacts/."""
-    pass
+    with open(ARTIFACTS / "tokeni.pkl", "rb") as f:
+        return pickle.load(f)
 
 
 def napravi_trie():
