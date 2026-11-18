@@ -46,7 +46,9 @@ def ucitaj_trie():
     return pipeline.ucitaj_trie()
 
 
-@st.cache_data
+# cache_resource umesto cache_data: cache_data bi pri svakom pritisku tastera
+# kopirao ceo katalog (~200 ms). Katalog se zato nigde ne menja direktno.
+@st.cache_resource
 def ucitaj_katalog():
     return pipeline.ucitaj_katalog()
 
