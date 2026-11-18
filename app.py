@@ -18,8 +18,9 @@ import html
 import math
 
 import streamlit as st
+from st_keyup import st_keyup
 
-from mrvectorbeat import pipeline, prikaz, tekst
+from mrvectorbeat import pipeline, prikaz, tekst, trie
 
 # OVDE IDU importi vasih modula, npr.:
 #   from mrvectorbeat import upit, indeks, tfidf, bm25, ...
@@ -171,7 +172,7 @@ def ucitaj_sbert_vektore():
 
 
 ind = ucitaj_indeks()
-stablo = ucitaj_trie()
+obicno_stablo, obrnuto_stablo = ucitaj_trie()
 kgram_indeks = ucitaj_kgram()
 porodice = ucitaj_porodice()
 df = ucitaj_katalog()
@@ -203,10 +204,44 @@ with st.sidebar:
 
 if strana == "Pretraga":
     st.title("Pretraga")
-    st.caption("Kucajte naziv pesme ili izvodjaca.")
+    st.caption("Kucajte naziv pesme ili izvodjaca. Zvezdica menja bilo koji niz slova: lov*, *ing, be*t.")
 
-    # Koristi: st_keyup (from st_keyup import st_keyup), stablo, kgram_indeks,
-    #          ucitaj_popularnost(), df, prikaz.sugestija(), prikaz.kartica()
+    BROJ_PREDLOGA = 10
+    unos = st_keyup("Pretraga", key="pretraga_unos", debounce=200,
+                    placeholder="npr. queen, lov*, *ing, be*t",
+                    label_visibility="collapsed").strip()
+
+    if unos:
+        oblik = trie.oblik_obrasca(unos)
+        predlozi = []
+        greska = None
+        try:
+            if oblik == "prefiks":
+                predlozi = obicno_stablo.pretrazi(unos, BROJ_PREDLOGA)
+            elif oblik == "sufiks":
+                predlozi = obrnuto_stablo.pretrazi(unos, BROJ_PREDLOGA)
+            else:
+                # k-gramski indeks samo kad zvezdicu ne mogu da rese stabla
+                predlozi = kgram_indeks.pretrazi(unos, BROJ_PREDLOGA)
+        except ValueError as e:
+            greska = str(e)
+
+        if greska:
+            st.warning(greska)
+        elif predlozi:
+            istaknuto = unos.rstrip("*") if oblik == "prefiks" else ""
+            for ime, tip, ucestalost in predlozi:
+                prikaz.sugestija(ime, istaknuto, f"{tip} · {ucestalost}×")
+        elif oblik == "prefiks":
+            # ispravka samo kad dopuna ne vrati nijedno ime
+            ispravka = kgram_indeks.ispravka(unos.rstrip("*"))
+            if ispravka:
+                ime, tip, _ = ispravka
+                st.markdown(f"Nijedno ime ne pocinje sa *{unos}*. Da li ste mislili: **{ime}** ({tip})?")
+            else:
+                st.info("Nema imena koje pocinje ovako, a nema ni dovoljno slicnog.")
+        else:
+            st.info("Nijedno ime ne odgovara obrascu.")
 
 
 # --- Katalog -----------------------------------------------------------

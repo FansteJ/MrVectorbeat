@@ -37,7 +37,6 @@ class PrefiksnoStablo:
         self.obrnuto = obrnuto
         self.koren = Cvor()
         self.broj_cvorova = 1
-        self.obidjeno = 0       # koliko cvorova je skinuto sa heap-a u poslednjoj pretrazi
 
     def dodaj(self, kljuc, prikaz, tip, ucestalost, popularnost):
         if self.obrnuto:
@@ -76,7 +75,6 @@ class PrefiksnoStablo:
 
     def predlozi(self, prefiks, k=10):
         """k najcescih imena koja pocinju sa prefiks, od najcesceg ka najredjem."""
-        self.obidjeno = 0
         pocetak = self._cvor_za(prefiks.lower())
         if pocetak is None:
             return []
@@ -96,7 +94,6 @@ class PrefiksnoStablo:
         while heap and len(rezultat) < k:
             stvar = heapq.heappop(heap)[-1]
             if isinstance(stvar, Cvor):
-                self.obidjeno += 1
                 for prioritet, prikaz, tip in stvar.imena:
                     ubaci(prioritet, (prikaz, tip, prioritet[0]))
                 for dete in stvar.deca.values():

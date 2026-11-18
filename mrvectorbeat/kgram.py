@@ -30,7 +30,6 @@ class KgramIndeks:
         self.imena = []         # id -> (kljuc, prikaz, tip, ucestalost, popularnost)
         self.postings = {}      # k-gram -> skup id-jeva imena
         self.broj_kgrama = []   # id -> koliko razlicitih k-grama ime ima (|B| u Zakardu)
-        self.poslednja = {}     # statistika poslednje pretrage, za prikaz
 
     def dodaj(self, kljuc, prikaz, tip, ucestalost, popularnost):
         id_imena = len(self.imena)
@@ -70,9 +69,6 @@ class KgramIndeks:
 
         prosli = [self.imena[i] for i in kandidati if odgovara(self.imena[i][0], obrazac)]
         prosli.sort(key=lambda x: (x[3], x[4]), reverse=True)
-
-        self.poslednja = {"kgrami": sorted(grami), "duzine_lista": [len(l) for l in liste],
-                          "kandidata": len(kandidati), "proslo_proveru": len(prosli)}
         return [(prikaz, tip, ucestalost) for _, prikaz, tip, ucestalost, _ in prosli[:k]]
 
     def ispravka(self, unos, prag=PRAG):
@@ -98,7 +94,6 @@ class KgramIndeks:
                 najbolji_kljuc = kljuc_poredjenja
                 najbolji = (prikaz, tip, zakard)
 
-        self.poslednja = {"kgrami": sorted(a), "kandidata": len(zajednicki)}
         if najbolji is None or najbolji[2] < prag:
             return None
         return najbolji
