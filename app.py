@@ -14,12 +14,15 @@
 # Pokretanje iz korena projekta:
 #   streamlit run app.py
 
+import html
+import math
+
 import streamlit as st
 
-from mrvectorbeat import pipeline, prikaz
+from mrvectorbeat import pipeline, prikaz, tekst
 
 # OVDE IDU importi vasih modula, npr.:
-#   from mrvectorbeat import tekst, upit, indeks, tfidf, bm25, ...
+#   from mrvectorbeat import upit, indeks, tfidf, bm25, ...
 
 st.set_page_config(page_title="Mr Vectorbeat", layout="wide")
 st.markdown(prikaz.CSS, unsafe_allow_html=True)
@@ -211,7 +214,46 @@ if strana == "Pretraga":
 elif strana == "Katalog":
     st.title("Katalog")
 
-    # Koristi: df, prikaz.plocica()
+    if "kat_strana" not in st.session_state:
+        st.session_state.kat_strana = 1
+
+    def na_prvu_stranu():
+        st.session_state.kat_strana = 1
+
+    SORTIRANJE = {"Popularnost": "track_popularity", "Godina": "godina", "Tempo": "tempo"}
+
+    k1, k2, k3, k4 = st.columns([3, 2, 1.3, 1.3])
+    zanrovi = k1.multiselect("Zanr", sorted(df["playlist_genre"].unique()),
+                             placeholder="Svi zanrovi", on_change=na_prvu_stranu)
+    po_cemu = k2.selectbox("Sortiraj po", list(SORTIRANJE), on_change=na_prvu_stranu)
+    smer = k3.selectbox("Smer", ["Opadajuce", "Rastuce"], on_change=na_prvu_stranu)
+    po_strani = k4.selectbox("Po strani", [12, 24, 48, 96], index=1, on_change=na_prvu_stranu)
+
+    izbor = df[df["playlist_genre"].isin(zanrovi)] if zanrovi else df
+    izbor = izbor.sort_values(SORTIRANJE[po_cemu], ascending=(smer == "Rastuce"), kind="stable")
+
+    broj_strana = max(1, math.ceil(len(izbor) / po_strani))
+    st.session_state.kat_strana = min(st.session_state.kat_strana, broj_strana)
+    strana_br = st.session_state.kat_strana
+
+    st.caption(f"{len(izbor):,} pesama · strana {strana_br} od {broj_strana}".replace(",", " "))
+
+    deo = izbor.iloc[(strana_br - 1) * po_strani: strana_br * po_strani]
+    KOLONA = 6
+    for i in range(0, len(deo), KOLONA):
+        for kolona, (_, red) in zip(st.columns(KOLONA), deo.iloc[i:i + KOLONA].iterrows()):
+            with kolona:
+                prikaz.plocica(red)
+
+    n1, n2, n3 = st.columns([1, 2, 1])
+    if n1.button("← Prethodna", disabled=strana_br <= 1, width="stretch"):
+        st.session_state.kat_strana -= 1
+        st.rerun()
+    n2.markdown(f"<div style='text-align:center; padding-top:6px'>Strana {strana_br} / {broj_strana}</div>",
+                unsafe_allow_html=True)
+    if n3.button("Sledeca →", disabled=strana_br >= broj_strana, width="stretch"):
+        st.session_state.kat_strana += 1
+        st.rerun()
 
 
 # --- Stihovi -----------------------------------------------------------
@@ -322,4 +364,34 @@ else:
     st.title("Obrada teksta")
     st.caption("Kako se stihovi pretvaraju u reci kojima pretrazujemo.")
 
-    # Koristi: vas modul za obradu teksta
+    unos = st.text_area(
+        "Tekst",
+        "Don't STOP me now, I'm havin' such a good time! "
+        "'Cause I'm dancing, I'm loving every minute...",
+        height=120,
+    )
+
+    korak1 = tekst.mala_slova(unos)
+    korak2 = tekst.izdvoj_reci(korak1)
+    korak3 = tekst.ukloni_stop_reci(korak2)
+    korak4 = tekst.stemuj(korak3)
+
+    st.subheader("1. Mala slova")
+    st.markdown(f"<div class='reci'>{html.escape(korak1)}</div>", unsafe_allow_html=True)
+
+    st.subheader(f"2. Izdvajanje reci  ·  {len(korak2)} reci")
+    st.markdown(f"<div class='reci'>{' · '.join(korak2)}</div>", unsafe_allow_html=True)
+
+    st.subheader(f"3. Uklanjanje stop-reci  ·  izbaceno {len(korak2) - len(korak3)}")
+    prikaz3 = " · ".join(
+        r if r not in tekst.STOP_RECI else f"<s style='color:#6b6b78'>{r}</s>"
+        for r in korak2
+    )
+    st.markdown(f"<div class='reci'>{prikaz3}</div>", unsafe_allow_html=True)
+
+    st.subheader("4. Stemer (Snowball)")
+    prikaz4 = " · ".join(
+        f"<span class='rezultat'>{k}</span>" if k != r else k
+        for r, k in zip(korak3, korak4)
+    )
+    st.markdown(f"<div class='reci'>{prikaz4}</div>", unsafe_allow_html=True)
