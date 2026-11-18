@@ -1,5 +1,7 @@
 import re
 
+import pandas as pd
+
 from mrvectorbeat import tekst
 
 _ZAGRADE = re.compile(r"\([^)]*\)|\[[^\]]*\]")
@@ -28,3 +30,25 @@ def osnovni_naslov(naslov):
 
 def kljuc_porodice(izvodjac, naslov):
     return _normalizuj(izvodjac) + "|" + osnovni_naslov(naslov)
+
+
+def imena_za_pretragu(df):
+    """Tabela (kljuc, prikaz, tip, ucestalost, popularnost) za pesme i izvodjace."""
+    delovi = []
+    for kolona, tip in [("track_name", "pesma"), ("track_artist", "izvođač")]:
+        t = pd.DataFrame({"prikaz": df[kolona], "popularnost": df["track_popularity"]})
+        t["kljuc"] = t["prikaz"].str.lower()
+
+        # ako ime postoji u vise oblika ("Ace of Spades" / "Ace Of Spades"), uzima se najcesci
+        oblici = t.groupby(["kljuc", "prikaz"]).size().reset_index(name="n")
+        oblici = oblici.sort_values("n", ascending=False).drop_duplicates("kljuc")
+
+        g = t.groupby("kljuc")
+        zbir = pd.DataFrame({
+            "ucestalost": g.size(),
+            "popularnost": g["popularnost"].max(),
+        }).reset_index()
+        zbir = zbir.merge(oblici[["kljuc", "prikaz"]], on="kljuc")
+        zbir["tip"] = tip
+        delovi.append(zbir[["kljuc", "prikaz", "tip", "ucestalost", "popularnost"]])
+    return pd.concat(delovi, ignore_index=True)
