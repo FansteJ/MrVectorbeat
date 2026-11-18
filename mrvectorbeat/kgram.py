@@ -1,4 +1,5 @@
 K = 3
+PRAG = 0.3      # izabran merenjem na imenima sa greskom i na nasumicnim unosima
 
 
 def kgrami(tekst):
@@ -28,12 +29,15 @@ class KgramIndeks:
     def __init__(self):
         self.imena = []         # id -> (kljuc, prikaz, tip, ucestalost, popularnost)
         self.postings = {}      # k-gram -> skup id-jeva imena
+        self.broj_kgrama = []   # id -> koliko razlicitih k-grama ime ima (|B| u Zakardu)
         self.poslednja = {}     # statistika poslednje pretrage, za prikaz
 
     def dodaj(self, kljuc, prikaz, tip, ucestalost, popularnost):
         id_imena = len(self.imena)
         self.imena.append((kljuc, prikaz, tip, ucestalost, popularnost))
-        for g in kgrami(kljuc):
+        grami = kgrami(kljuc)
+        self.broj_kgrama.append(len(grami))
+        for g in grami:
             self.postings.setdefault(g, set()).add(id_imena)
 
     def kgrami_obrasca(self, obrazac):
@@ -70,3 +74,31 @@ class KgramIndeks:
         self.poslednja = {"kgrami": sorted(grami), "duzine_lista": [len(l) for l in liste],
                           "kandidata": len(kandidati), "proslo_proveru": len(prosli)}
         return [(prikaz, tip, ucestalost) for _, prikaz, tip, ucestalost, _ in prosli[:k]]
+
+    def ispravka(self, unos, prag=PRAG):
+        """Najblize ime po Zakardovom koeficijentu, ili None ako je ispod praga.
+        Vraca (prikaz, tip, zakard)."""
+        a = kgrami(unos.lower())
+
+        # za svakog kandidata brojimo koliko k-grama deli sa unosom: to je |A ∩ B|
+        zajednicki = {}
+        for g in a:
+            for id_imena in self.postings.get(g, ()):
+                zajednicki[id_imena] = zajednicki.get(id_imena, 0) + 1
+
+        najbolji = None
+        najbolji_kljuc = None
+        for id_imena, presek in zajednicki.items():
+            unija = len(a) + self.broj_kgrama[id_imena] - presek
+            zakard = presek / unija
+            _, prikaz, tip, ucestalost, popularnost = self.imena[id_imena]
+            # kod iste slicnosti prednost ima cesce ime
+            kljuc_poredjenja = (zakard, ucestalost, popularnost)
+            if najbolji_kljuc is None or kljuc_poredjenja > najbolji_kljuc:
+                najbolji_kljuc = kljuc_poredjenja
+                najbolji = (prikaz, tip, zakard)
+
+        self.poslednja = {"kgrami": sorted(a), "kandidata": len(zajednicki)}
+        if najbolji is None or najbolji[2] < prag:
+            return None
+        return najbolji
