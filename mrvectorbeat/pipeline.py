@@ -21,10 +21,23 @@ from pathlib import Path
 import pandas as pd
 
 from mrvectorbeat import katalog, tekst
+from mrvectorbeat.kgram import KgramIndeks
+from mrvectorbeat.trie import PrefiksnoStablo
 
 KOREN = Path(__file__).resolve().parent.parent
 DATA = KOREN / "data"
 ARTIFACTS = KOREN / "artifacts"
+
+
+def _snimi(objekat, ime_fajla):
+    ARTIFACTS.mkdir(exist_ok=True)
+    with open(ARTIFACTS / ime_fajla, "wb") as f:
+        pickle.dump(objekat, f)
+
+
+def _ucitaj(ime_fajla):
+    with open(ARTIFACTS / ime_fajla, "rb") as f:
+        return pickle.load(f)
 
 
 # Kolone koje zadrzavamo u katalogu. Sve ostalo iz CSV-a nam ne treba.
@@ -80,26 +93,33 @@ def napravi_tokene():
     Vraca: recnik track_id -> lista termina."""
     df = ucitaj_katalog()
     tokeni = {tid: tekst.obradi(s) for tid, s in zip(df["track_id"], df["lyrics"])}
-
-    with open(ARTIFACTS / "tokeni.pkl", "wb") as f:
-        pickle.dump(tokeni, f)
+    _snimi(tokeni, "tokeni.pkl")
     return tokeni
 
 
 def ucitaj_tokene():
     """Cita gotove tokene iz artifacts/."""
-    with open(ARTIFACTS / "tokeni.pkl", "rb") as f:
-        return pickle.load(f)
+    return _ucitaj("tokeni.pkl")
+
+
+def _imena():
+    return katalog.imena_za_pretragu(ucitaj_katalog())
 
 
 def napravi_trie():
-    """Gradi trie nad imenima pesama i izvodjaca i snima ga u artifacts/."""
-    pass
+    """Gradi obicno i obrnuto prefiksno stablo nad imenima pesama i izvodjaca
+    i snima ih u artifacts/. Vraca: (obicno, obrnuto)."""
+    obicno, obrnuto = PrefiksnoStablo(), PrefiksnoStablo(obrnuto=True)
+    for r in _imena().itertuples():
+        obicno.dodaj(r.kljuc, r.prikaz, r.tip, r.ucestalost, r.popularnost)
+        obrnuto.dodaj(r.kljuc, r.prikaz, r.tip, r.ucestalost, r.popularnost)
+    _snimi((obicno, obrnuto), "trie.pkl")
+    return obicno, obrnuto
 
 
 def ucitaj_trie():
-    """Cita gotov trie iz artifacts/."""
-    pass
+    """Cita gotova stabla iz artifacts/. Vraca: (obicno, obrnuto)."""
+    return _ucitaj("trie.pkl")
 
 
 def ucitaj_porodice():
@@ -115,12 +135,16 @@ def ucitaj_popularnost():
 def napravi_kgram():
     """Gradi k-gramski indeks nad imenima pesama i izvodjaca i snima ga u
     artifacts/."""
-    pass
+    indeks = KgramIndeks()
+    for r in _imena().itertuples():
+        indeks.dodaj(r.kljuc, r.prikaz, r.tip, r.ucestalost, r.popularnost)
+    _snimi(indeks, "kgram.pkl")
+    return indeks
 
 
 def ucitaj_kgram():
     """Cita gotov k-gramski indeks iz artifacts/."""
-    pass
+    return _ucitaj("kgram.pkl")
 
 
 def napravi_indeks():

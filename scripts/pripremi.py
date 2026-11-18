@@ -28,10 +28,12 @@ print(f"Tokeni: {sum(len(t) for t in tok.values())} termina, "
       f"{len({t for ts in tok.values() for t in ts})} razlicitih")
 
 # Trie
-pipeline.napravi_trie()
+obicno, obrnuto = pipeline.napravi_trie()
+print(f"Trie: {obicno.broj_cvorova} cvorova (obicno), {obrnuto.broj_cvorova} (obrnuto)")
 
 # K-gramski indeks
-pipeline.napravi_kgram()
+kg = pipeline.napravi_kgram()
+print(f"K-gramski indeks: {len(kg.imena)} imena, {len(kg.postings)} k-grama")
 
 # Invertovani indeks
 pipeline.napravi_indeks()
