@@ -20,7 +20,7 @@ import math
 import streamlit as st
 from st_keyup import st_keyup
 
-from mrvectorbeat import pipeline, prikaz, tekst, trie
+from mrvectorbeat import isecak, pipeline, prikaz, tekst, trie
 
 # OVDE IDU importi vasih modula, npr.:
 #   from mrvectorbeat import upit, indeks, tfidf, bm25, ...
@@ -148,9 +148,10 @@ def ucitaj_labele_autoplay():
     pass
 
 
-@st.cache_data
+# cache_resource iz istog razloga kao ucitaj_katalog: bez kopije pri svakom kliku
+@st.cache_resource
 def ucitaj_katalog_po_id():
-    pass
+    return ucitaj_katalog().set_index("track_id")
 
 
 @st.cache_resource
@@ -300,6 +301,83 @@ elif strana == "Stihovi":
     st.caption("Pretrazuje sadrzaj pesama, ne naslove.")
 
     # Koristi: ind, ucitaj_tfidf(), porodice, df, prikaz.kartica()
+
+    MAKS_REZULTATA = 20
+    katalog_po_id = ucitaj_katalog_po_id()
+    rezim = st.radio("Rezim", ["Bulov", "Frazni", "Blizina"], horizontal=True,
+                     label_visibility="collapsed")
+
+    # pogodak: (track_id, pozicije za isecak, da li se istice ceo raspon)
+    pogoci = []
+    termini = []
+    unet_upit = False
+    if rezim == "Bulov":
+        k1, k2 = st.columns([1, 4])
+        operator = k1.selectbox("Operator", ["I", "ILI", "BEZ"],
+                                help="I: sve reci · ILI: bar jedna · BEZ: prva rec, a bez ostalih")
+        upit = k2.text_input("Reci", placeholder="npr. love night")
+        if upit:
+            unet_upit = True
+            termini = tekst.obradi(upit)
+            # Bulova pretraga ne vraca pozicije; mesto za isecak se trazi tek pri
+            # prikazu (pozicije = None), samo za prikazane pesme
+            for id_pesme in ind.bulova(upit, operator):
+                pogoci.append((ind.track_ids[id_pesme], None, True))
+            # kod BEZ se isecak pravi oko prve reci, jer ostale ne smeju da se jave
+            trazeni = termini[:1] if operator == "BEZ" else termini
+
+    elif rezim == "Frazni":
+        upit = st.text_input("Fraza", placeholder="npr. hold me tight")
+        if upit:
+            unet_upit = True
+            termini = tekst.obradi(upit)
+            for id_pesme, poceci in ind.frazni(upit):
+                # isecak oko prvog pogotka: sve reci fraze od tog pocetka
+                pozicije = [poceci[0] + k for k in range(len(termini))]
+                pogoci.append((ind.track_ids[id_pesme], pozicije, True))
+
+    else:
+        k1, k2, k3 = st.columns([2, 2, 1])
+        rec1 = k1.text_input("Prva rec", placeholder="npr. love")
+        rec2 = k2.text_input("Druga rec", placeholder="npr. heart")
+        rastojanje = k3.number_input("Rastojanje manje od", min_value=2, max_value=50, value=5)
+        if rec1 and rec2:
+            unet_upit = True
+            termini = tekst.obradi(rec1) + tekst.obradi(rec2)
+            try:
+                for id_pesme, parovi in ind.blizina(rec1, rec2, rastojanje):
+                    pogoci.append((ind.track_ids[id_pesme], list(parovi[0]), False))
+            except ValueError as e:
+                st.warning(str(e))
+
+    if unet_upit:
+        if not termini:
+            st.info("Upit posle obrade nema nijednu rec (samo stop-reci), pa nema rezultata.")
+        elif not pogoci:
+            st.info("Nijedna pesma ne odgovara upitu.")
+        else:
+            # dok nema rangiranja (TF-IDF), popularnije pesme idu prve
+            popularnost = katalog_po_id.loc[[p[0] for p in pogoci], "track_popularity"].tolist()
+            redosled = sorted(range(len(pogoci)), key=lambda i: popularnost[i], reverse=True)
+            pogoci = [pogoci[i] for i in redosled]
+
+            ukupno = f"Pronadjeno pesama: {len(pogoci)}"
+            if len(pogoci) > MAKS_REZULTATA:
+                ukupno += f" · prikazano prvih {MAKS_REZULTATA}"
+            st.caption(ukupno)
+
+            for mesto, (track_id, pozicije, raspon) in enumerate(pogoci[:MAKS_REZULTATA], start=1):
+                red = katalog_po_id.loc[track_id]
+                prikaz.kartica(mesto, red)
+                if pozicije is None:
+                    pozicije = [isecak.prvo_pojavljivanje(red["lyrics"], trazeni)]
+                delovi = isecak.isecak(red["lyrics"], pozicije, raspon=raspon)
+                tekst_isecka = "".join(
+                    f"<span class='rezultat'>{html.escape(deo)}</span>" if istaknut else html.escape(deo)
+                    for deo, istaknut in delovi
+                )
+                st.markdown(f"<div style='color:#a8a8b3; font-size:14px; margin:-4px 0 16px 50px'>"
+                            f"{tekst_isecka}</div>", unsafe_allow_html=True)
 
 
 # --- Jezicki model -----------------------------------------------------
