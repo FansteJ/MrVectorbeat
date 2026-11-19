@@ -15,7 +15,9 @@
 #                 (poziva je app.py)
 # Tako aplikacija nikad ne gradi nista iznova pri svakom kliku.
 
+import gc
 import pickle
+from contextlib import contextmanager
 from pathlib import Path
 
 import pandas as pd
@@ -41,6 +43,18 @@ def _snimi(objekat, ime_fajla):
 def _ucitaj(ime_fajla):
     with open(ARTIFACTS / ime_fajla, "rb") as f:
         return pickle.load(f)
+
+
+@contextmanager
+def _bez_sakupljaca_smeca():
+    """Za duge petlje rangiranja: sakupljac smeca bi stalno pregledao milione objekata
+    ucitanih modela. Memorija se i dalje oslobadja odmah (brojanjem referenci);
+    sakupljac treba samo za kruzne reference, a ove petlje ih ne prave."""
+    gc.disable()
+    try:
+        yield
+    finally:
+        gc.enable()
 
 
 # Kolone koje zadrzavamo u katalogu. Sve ostalo iz CSV-a nam ne treba.
@@ -216,24 +230,28 @@ def napravi_parametre_bm25():
     tfidf_model = ucitaj_tfidf()
     bm25_model = ucitaj_bm25()
     porodice = ucitaj_porodice()
+    porodica_po_id = rangiranje.porodice_po_id(indeks, porodice)
     upiti = evaluacija.ocene_po_porodicama(ucitaj_qrels(), porodice.get)
     bez_greske = [u for u, p in upiti.items() if evaluacija.grupa(p) == evaluacija.BEZ_GRESKE]
+    ocene = {u: evaluacija.ocene_za_mere(upiti[u]) for u in bez_greske}
 
     mrr = {}
     najbolje = None
-    for b in B_VREDNOSTI:
-        mrr[b] = []
-        for k1 in K1_VREDNOSTI:
-            rang_liste = {}
-            for upit in bez_greske:
-                rangirano = rangiranje.rangiraj("BM25", upit, indeks, tfidf_model, bm25_model,
-                                                porodice, k1=k1, b=b)
-                rang_liste[upit] = [indeks.track_ids[id_pesme] for id_pesme, _ in rangirano]
-            vrednost = evaluacija.prosek_mere(evaluacija.reciprocni_rang, rang_liste, upiti,
-                                              porodice.get, evaluacija.BEZ_GRESKE)
-            mrr[b].append(vrednost)
-            if najbolje is None or vrednost > najbolje[0]:
-                najbolje = (vrednost, k1, b)
+    with _bez_sakupljaca_smeca():
+        for b in B_VREDNOSTI:
+            mrr[b] = []
+            for k1 in K1_VREDNOSTI:
+                zbir_rr = 0.0
+                for upit in bez_greske:
+                    rangirano = rangiranje.rangiraj("BM25", upit, indeks, tfidf_model, bm25_model,
+                                                    porodica_po_id, k1=k1, b=b)
+                    # porodice se citaju redom iz iste liste, a RR staje kod prve relevantne
+                    porodice_redom = (porodica_po_id[id_pesme] for id_pesme, _ in rangirano)
+                    zbir_rr += evaluacija.reciprocni_rang(porodice_redom, ocene[upit])
+                vrednost = zbir_rr / len(bez_greske)
+                mrr[b].append(vrednost)
+                if najbolje is None or vrednost > najbolje[0]:
+                    najbolje = (vrednost, k1, b)
 
     _, k1, b = najbolje
     bm25_model.k1, bm25_model.b = k1, b
@@ -257,15 +275,17 @@ def napravi_evaluaciju():
     tfidf_model = ucitaj_tfidf()
     bm25_model = ucitaj_bm25()
     porodice = ucitaj_porodice()
+    porodica_po_id = rangiranje.porodice_po_id(indeks, porodice)
     upiti = ucitaj_qrels()["upit"].unique()
 
     rang_liste = {}
-    for model in rangiranje.MODELI:
-        rang_liste[model] = {}
-        for upit in upiti:
-            # upiti sa greskom u kucanju se ne ispravljaju
-            rangirano = rangiranje.rangiraj(model, upit, indeks, tfidf_model, bm25_model, porodice)
-            rang_liste[model][upit] = [indeks.track_ids[id_pesme] for id_pesme, _ in rangirano]
+    with _bez_sakupljaca_smeca():
+        for model in rangiranje.MODELI:
+            rang_liste[model] = {}
+            for upit in upiti:
+                # upiti sa greskom u kucanju se ne ispravljaju
+                rangirano = rangiranje.rangiraj(model, upit, indeks, tfidf_model, bm25_model, porodica_po_id)
+                rang_liste[model][upit] = [indeks.track_ids[id_pesme] for id_pesme, _ in rangirano]
     _snimi(rang_liste, "evaluacija.pkl")
     return rang_liste
 

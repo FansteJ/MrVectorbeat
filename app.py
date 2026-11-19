@@ -191,6 +191,14 @@ tfidf_model = ucitaj_tfidf()
 bm25_model = ucitaj_bm25()
 
 
+@st.cache_resource
+def ucitaj_porodice_po_id():
+    return rangiranje.porodice_po_id(ind, porodice)
+
+
+porodica_po_id = ucitaj_porodice_po_id()
+
+
 # Ucitani modeli imaju milione objekata koji se nikad ne brisu, a Python-ov
 # sakupljac smeca bi ih povremeno sve pregledao (~0,85 s zastoja usred upita).
 # freeze ih iskljucuje iz tog pregleda. Radi se jednom, posle ucitavanja.
@@ -322,9 +330,6 @@ elif strana == "Stihovi":
     MAKS_REZULTATA = 20
     katalog_po_id = ucitaj_katalog_po_id()
 
-    def porodica_za(id_pesme):
-        return porodice[ind.track_ids[id_pesme]]
-
     def delovi_u_html(delovi):
         return "".join(f"<span class='rezultat'>{html.escape(deo)}</span>" if istaknut
                        else html.escape(deo) for deo, istaknut in delovi)
@@ -369,7 +374,7 @@ elif strana == "Stihovi":
         id_a = ind.track_ids.index(track_id)
         red_a = katalog_po_id.loc[track_id]
         termini_a = tekst.obradi(red_a["lyrics"])
-        slicne = tfidf_model.slicne(ind, id_a, termini_a, porodica_za)
+        slicne = tfidf_model.slicne(ind, id_a, termini_a, porodica_po_id)
 
         with st.container(border=True):
             k1, k2 = st.columns([7, 1])
@@ -404,7 +409,7 @@ elif strana == "Stihovi":
             termini = tekst.obradi(upit)
             trazeni = termini
             # ista funkcija se koristi i za evaluaciju, pa se meri bas ova lista
-            rangirano = rangiranje.rangiraj(mera, upit, ind, tfidf_model, bm25_model, porodice)
+            rangirano = rangiranje.rangiraj(mera, upit, ind, tfidf_model, bm25_model, porodica_po_id)
             for id_pesme, ocena in rangirano:
                 pogoci.append((ind.track_ids[id_pesme], None, True, ocena))
 

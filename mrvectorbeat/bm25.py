@@ -1,8 +1,11 @@
 import math
+from collections import defaultdict
+from operator import itemgetter
 
 from mrvectorbeat import tekst
 
-K1 = 1.5    # privremeno, vrednosti sa vezbi; biraju se merenjem (MRR za vise k1 i b)
+# podrazumevano kao na vezbama; pripremi.py ih zameni vrednostima izabranim merenjem
+K1 = 1.5
 B = 0.75
 
 
@@ -25,6 +28,8 @@ class BM25Model:
             for id_pesme, pozicije in lista:
                 self.duzina[id_pesme] += len(pozicije)
         self.prosecna_duzina = sum(self.duzina) / self.broj_pesama
+        # |d| / avgdl za svaku pesmu, da se pri upitu ne deli iznova
+        self.relativna_duzina = [d / self.prosecna_duzina for d in self.duzina]
 
     def bm25(self, indeks, upit, k1=None, b=None):
         """BM25 ocena pesama koje sadrze bar jednu rec upita.
@@ -37,14 +42,20 @@ class BM25Model:
         for termin in tekst.obradi(upit):
             broj_u_upitu[termin] = broj_u_upitu.get(termin, 0) + 1
 
-        ocene = {}
+        # k1 * (1 - b + b * |d|/avgdl) = k1 * (1 - b) + k1 * b * |d|/avgdl:
+        # prvi deo ne zavisi od pesme, pa se racuna jednom, pre petlje
+        stalni_deo = k1 * (1 - b)
+        deo_po_duzini = k1 * b
+        relativna_duzina = self.relativna_duzina
+
+        ocene = defaultdict(float)      # pesma koje jos nema pocinje od 0
         for termin, puta in broj_u_upitu.items():
             idf = self.idf.get(termin)
             if idf is None:         # reci nema ni u jednoj pesmi
                 continue
+            tezina = puta * idf * (k1 + 1)
             for id_pesme, pozicije in indeks.postings_za(termin):
                 tf = len(pozicije)
-                normalizacija = 1 - b + b * self.duzina[id_pesme] / self.prosecna_duzina
-                doprinos = idf * tf * (k1 + 1) / (tf + k1 * normalizacija)
-                ocene[id_pesme] = ocene.get(id_pesme, 0.0) + puta * doprinos
-        return sorted(ocene.items(), key=lambda par: par[1], reverse=True)
+                doprinos = tezina * tf / (tf + stalni_deo + deo_po_duzini * relativna_duzina[id_pesme])
+                ocene[id_pesme] += doprinos
+        return sorted(ocene.items(), key=itemgetter(1), reverse=True)
