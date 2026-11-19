@@ -40,6 +40,24 @@ def _spoji_sa_pomakom(kandidati, postings, pomak):
     return rezultat
 
 
+def _parovi_u_blizini(a, b, rastojanje, ista_rec=False):
+    """Parovi (pa, pb) za koje je |pa - pb| < rastojanje. Obe liste su sortirane.
+    Ako se trazi ista rec dvaput ("love" i "love"), svaki par se vraca jednom (pa < pb)."""
+    rezultat = []
+    levo = 0
+    for pa in a:
+        # pozicije iz b koje su predaleko levo od pa vise nikad nece biti blizu
+        while levo < len(b) and b[levo] <= pa - rastojanje:
+            levo += 1
+        j = levo
+        while j < len(b) and b[j] < pa + rastojanje:
+            # razlicite reci nikad nisu na istoj poziciji; kod iste reci uzimamo samo pb > pa
+            if not ista_rec or b[j] > pa:
+                rezultat.append((pa, b[j]))
+            j += 1
+    return rezultat
+
+
 class PozicioniIndeks:
     def __init__(self):
         self.track_ids = []     # id pesme -> track_id iz kataloga
@@ -126,3 +144,31 @@ class PozicioniIndeks:
                 break
             kandidati = _spoji_sa_pomakom(kandidati, self.postings_za(termin), pomak)
         return kandidati
+
+    def blizina(self, rec1, rec2, rastojanje):
+        """Pesme u kojima su dve reci na rastojanju manjem od zadatog, bilo kojim redom.
+        Vraca [(id pesme, [(pozicija reci 1, pozicija reci 2), ...]), ...]."""
+        termini1, termini2 = tekst.obradi(rec1), tekst.obradi(rec2)
+        if len(termini1) > 1 or len(termini2) > 1:
+            raise ValueError("Upit po blizini prima tacno jednu rec u svakom polju.")
+        if not termini1 or not termini2:
+            return []
+
+        ista_rec = termini1[0] == termini2[0]
+        a, b = self.postings_za(termini1[0]), self.postings_za(termini2[0])
+        i = j = 0
+        rezultat = []
+        while i < len(a) and j < len(b):
+            pesma_a, pozicije_a = a[i]
+            pesma_b, pozicije_b = b[j]
+            if pesma_a == pesma_b:
+                parovi = _parovi_u_blizini(pozicije_a, pozicije_b, rastojanje, ista_rec)
+                if parovi:
+                    rezultat.append((pesma_a, parovi))
+                i += 1
+                j += 1
+            elif pesma_a < pesma_b:
+                i += 1
+            else:
+                j += 1
+        return rezultat
