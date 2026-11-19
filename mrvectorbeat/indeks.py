@@ -11,8 +11,10 @@ class PozicioniIndeks:
         id_pesme = len(self.track_ids)
         self.track_ids.append(track_id)
 
+        # pozicija je redni broj termina u obradjenom stihu (bez stop-reci),
+        # pa su reci fraze susedne ako su na uzastopnim pozicijama
         pozicije_termina = {}
-        for termin, pozicija in tekst.obradi_sa_pozicijama(stihovi):
+        for pozicija, termin in enumerate(tekst.obradi(stihovi)):
             pozicije_termina.setdefault(termin, []).append(pozicija)
         for termin, pozicije in pozicije_termina.items():
             self.postings.setdefault(termin, []).append((id_pesme, pozicije))
