@@ -87,6 +87,11 @@ def ucitaj_qrels():
 
 
 @st.cache_data
+def ucitaj_parametre_bm25():
+    return pipeline.ucitaj_parametre_bm25()
+
+
+@st.cache_data
 def ucitaj_graf():
     return pipeline.ucitaj_graf()
 
@@ -580,6 +585,51 @@ elif strana == "Evaluacija":
             vrednosti = mere_eval[model][upit]
             # za jedan upit mere su RR i AP; MRR i MAP su njihovi proseci u tabelama
             st.markdown(" · ".join(f"**{ime}** {vrednost:.3f}" for ime, vrednost in vrednosti.items()))
+
+    # --- Parametri BM25 ---
+    st.header("Parametri BM25")
+    parametri = ucitaj_parametre_bm25()
+    izabrano_k1, izabrano_b = parametri["izabrano"]
+    broj_bez_greske = sum(1 for p in upiti_eval.values()
+                          if evaluacija.grupa(p) == evaluacija.BEZ_GRESKE)
+
+    k1, k2, k3 = st.columns(3)
+    k1.metric("Izabrano k1", f"{izabrano_k1:g}")
+    k2.metric("Izabrano b", f"{izabrano_b:g}")
+    k3.metric("MRR sa izabranim", f"{max(parametri['mrr'][izabrano_b]):.3f}")
+
+    # jedna kolona po b, redovi su vrednosti k1 (za tabelu tacnih vrednosti ispod)
+    grafik = pd.DataFrame({f"b = {b:g}": mrr for b, mrr in parametri["mrr"].items()},
+                          index=pd.Index(parametri["k1"], name="k1"))
+    # za grafik: jedan red po tacki (k1, b, MRR)
+    tacke = pd.DataFrame([{"k1": k1_vrednost, "b": f"b = {b:g}", "MRR": vrednost}
+                          for b, mrr in parametri["mrr"].items()
+                          for k1_vrednost, vrednost in zip(parametri["k1"], mrr)])
+    osa_x = {"field": "k1", "type": "quantitative", "title": "k1"}
+    # zero: False -> y-osa prati podatke (0,74-1,0), umesto da pocinje od 0
+    osa_y = {"field": "MRR", "type": "quantitative", "title": "MRR", "scale": {"zero": False}}
+    st.vega_lite_chart(tacke, {
+        "height": 420,
+        "layer": [
+            # jedna linija po b, sa tackom na svakoj izmerenoj vrednosti k1
+            {"mark": {"type": "line", "point": True, "strokeWidth": 2},
+             "encoding": {"x": osa_x, "y": osa_y,
+                          "color": {"field": "b", "type": "nominal", "title": None,
+                                    "scale": {"scheme": "category10"}},
+                          "tooltip": [{"field": "b"}, {"field": "k1"},
+                                      {"field": "MRR", "format": ".3f"}]}},
+            # izabrana tacka, zaokruzena
+            {"transform": [{"filter": f"datum.k1 == {izabrano_k1} && datum.b == 'b = {izabrano_b:g}'"}],
+             "mark": {"type": "point", "size": 400, "filled": False, "color": "white", "strokeWidth": 2},
+             "encoding": {"x": osa_x, "y": osa_y}},
+        ],
+    }, width="stretch")
+    st.caption(f"MRR nad {broj_bez_greske} upita za jednu pesmu bez greske, za "
+               f"{len(parametri['k1'])} vrednosti k1 i {len(parametri['b'])} vrednosti b. "
+               f"Zaokruzena tacka je izabrani par. Vrednosti racuna scripts.pripremi; "
+               f"izabrane k1 i b koristi strana Stihovi.")
+    with st.expander("Tacne vrednosti"):
+        st.table(grafik.T.style.format("{:.3f}").highlight_max(axis=None, props="font-weight:bold"))
 
 
 # --- Izvodjaci ---------------------------------------------------------
