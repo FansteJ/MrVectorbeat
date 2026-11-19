@@ -608,6 +608,8 @@ elif strana == "Evaluacija":
     osa_x = {"field": "k1", "type": "quantitative", "title": "k1"}
     # zero: False -> y-osa prati podatke (0,74-1,0), umesto da pocinje od 0
     osa_y = {"field": "MRR", "type": "quantitative", "title": "MRR", "scale": {"zero": False}}
+    opis_tacke = [{"field": "b"}, {"field": "k1"}, {"field": "MRR", "format": ".3f"}]
+    izabrana = [{"filter": f"datum.k1 == {izabrano_k1} && datum.b == 'b = {izabrano_b:g}'"}]
     st.vega_lite_chart(tacke, {
         "height": 420,
         "layer": [
@@ -616,12 +618,15 @@ elif strana == "Evaluacija":
              "encoding": {"x": osa_x, "y": osa_y,
                           "color": {"field": "b", "type": "nominal", "title": None,
                                     "scale": {"scheme": "category10"}},
-                          "tooltip": [{"field": "b"}, {"field": "k1"},
-                                      {"field": "MRR", "format": ".3f"}]}},
-            # izabrana tacka, zaokruzena
-            {"transform": [{"filter": f"datum.k1 == {izabrano_k1} && datum.b == 'b = {izabrano_b:g}'"}],
+                          "tooltip": opis_tacke}},
+            # izabrana tacka: krug (sa istim opisom, jer pokriva tacku ispod) i natpis
+            {"transform": izabrana,
              "mark": {"type": "point", "size": 400, "filled": False, "color": "white", "strokeWidth": 2},
-             "encoding": {"x": osa_x, "y": osa_y}},
+             "encoding": {"x": osa_x, "y": osa_y, "tooltip": opis_tacke}},
+            {"transform": izabrana,
+             "mark": {"type": "text", "align": "left", "dx": 16, "dy": -4, "color": "white"},
+             "encoding": {"x": osa_x, "y": osa_y,
+                          "text": {"value": f"izabrano: k1 = {izabrano_k1:g}, b = {izabrano_b:g}"}}},
         ],
     }, width="stretch")
     st.caption(f"MRR nad {broj_bez_greske} upita za jednu pesmu bez greske, za "
