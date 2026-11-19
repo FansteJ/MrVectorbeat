@@ -14,6 +14,7 @@
 # Pokretanje iz korena projekta:
 #   streamlit run app.py
 
+import gc
 import html
 import math
 
@@ -184,6 +185,19 @@ izvodjaci = ucitaj_izvodjace()
 # i "AI DJ Bot", pa cekanje ide na start, a ne na prvi upit.
 ucitaj_sbert()
 zagrej_ollama()
+tfidf_model = ucitaj_tfidf()
+
+
+# Ucitani modeli imaju milione objekata koji se nikad ne brisu, a Python-ov
+# sakupljac smeca bi ih povremeno sve pregledao (~0,85 s zastoja usred upita).
+# freeze ih iskljucuje iz tog pregleda. Radi se jednom, posle ucitavanja.
+@st.cache_resource
+def zamrzni_ucitane_modele():
+    gc.collect()
+    gc.freeze()
+
+
+zamrzni_ucitane_modele()
 
 
 # --- Bocna traka -------------------------------------------------------
