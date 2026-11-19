@@ -45,7 +45,12 @@ print(f"TF-IDF model: idf za {len(tfidf.idf)} termina, duzine vektora za {tfidf.
 
 # BM25 i evaluacija
 bm25 = pipeline.napravi_bm25()
-print(f"BM25 model: prosecna duzina pesme {bm25.prosecna_duzina:.1f} termina, k1={bm25.k1}, b={bm25.b}")
+print(f"BM25 model: prosecna duzina pesme {bm25.prosecna_duzina:.1f} termina")
+parametri = pipeline.napravi_parametre_bm25()
+k1, b = parametri["izabrano"]
+print(f"BM25 parametri: k1={k1}, b={b} (MRR {max(parametri['mrr'][b]):.3f}, "
+      f"{len(parametri['k1'])} x {len(parametri['b'])} kombinacija)")
+# rang-liste za evaluaciju se prave tek posle izbora k1 i b
 rang_liste = pipeline.napravi_evaluaciju()
 print(f"Evaluacija: rang-liste za {len(next(iter(rang_liste.values())))} upita kroz {len(rang_liste)} modela")
 

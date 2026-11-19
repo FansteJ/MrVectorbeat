@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from mrvectorbeat import katalog, rangiranje, tekst
+from mrvectorbeat import evaluacija, katalog, rangiranje, tekst
 from mrvectorbeat.bm25 import BM25Model
 from mrvectorbeat.indeks import PozicioniIndeks
 from mrvectorbeat.kgram import KgramIndeks
@@ -200,6 +200,53 @@ def ucitaj_qrels(skup=None):
     if skup is not None:
         qrels = qrels[qrels["skup"] == skup].reset_index(drop=True)
     return qrels
+
+
+# gusce kod malih k1, gde se MRR najvise menja; k1 = 0 znaci da se gleda samo da li
+# je rec u pesmi, a ne koliko puta (tada b nema uticaja)
+K1_VREDNOSTI = [0.0, 0.1, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 2.5, 3.0]
+B_VREDNOSTI = [0.0, 0.25, 0.5, 0.75, 1.0]
+
+
+def napravi_parametre_bm25():
+    """MRR nad upitima za jednu pesmu bez greske za svaki par (k1, b), izbor para
+    sa najvecim MRR i snimanje BM25 modela sa izabranim parametrima.
+    Vraca {"k1": [...], "b": [...], "mrr": {b: [mrr za svako k1]}, "izabrano": (k1, b)}."""
+    indeks = ucitaj_indeks()
+    tfidf_model = ucitaj_tfidf()
+    bm25_model = ucitaj_bm25()
+    porodice = ucitaj_porodice()
+    upiti = evaluacija.ocene_po_porodicama(ucitaj_qrels(), porodice.get)
+    bez_greske = [u for u, p in upiti.items() if evaluacija.grupa(p) == evaluacija.BEZ_GRESKE]
+
+    mrr = {}
+    najbolje = None
+    for b in B_VREDNOSTI:
+        mrr[b] = []
+        for k1 in K1_VREDNOSTI:
+            rang_liste = {}
+            for upit in bez_greske:
+                rangirano = rangiranje.rangiraj("BM25", upit, indeks, tfidf_model, bm25_model,
+                                                porodice, k1=k1, b=b)
+                rang_liste[upit] = [indeks.track_ids[id_pesme] for id_pesme, _ in rangirano]
+            vrednost = evaluacija.prosek_mere(evaluacija.reciprocni_rang, rang_liste, upiti,
+                                              porodice.get, evaluacija.BEZ_GRESKE)
+            mrr[b].append(vrednost)
+            if najbolje is None or vrednost > najbolje[0]:
+                najbolje = (vrednost, k1, b)
+
+    _, k1, b = najbolje
+    bm25_model.k1, bm25_model.b = k1, b
+    _snimi(bm25_model, "bm25.pkl")
+
+    parametri = {"k1": K1_VREDNOSTI, "b": B_VREDNOSTI, "mrr": mrr, "izabrano": (k1, b)}
+    _snimi(parametri, "bm25_parametri.pkl")
+    return parametri
+
+
+def ucitaj_parametre_bm25():
+    """Cita MRR za mrezu (k1, b) i izabrane vrednosti iz artifacts/."""
+    return _ucitaj("bm25_parametri.pkl")
 
 
 def napravi_evaluaciju():

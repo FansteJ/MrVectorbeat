@@ -2,6 +2,10 @@ import math
 
 POZNATA = "poznata_stavka"
 TEMA = "tema"
+BEZ_GRESKE = "jedna pesma, bez greske"
+SA_GRESKOM = "jedna pesma, sa greskom"
+TEMATSKI = "tematski"
+GRUPE = (BEZ_GRESKE, SA_GRESKOM, TEMATSKI)
 
 
 # --- Mere kvaliteta rang-liste ---
@@ -79,10 +83,22 @@ def ocene_za_mere(podaci_upita):
     return ocene
 
 
+def prosek_mere(mera, rang_liste, upiti, porodica_za, ime_grupe):
+    """Prosek mere preko upita jedne grupe.
+    rang_liste: {upit: [track_id, ...]}, upiti: iz ocene_po_porodicama."""
+    vrednosti = []
+    for upit, podaci in upiti.items():
+        if grupa(podaci) != ime_grupe:
+            continue
+        lista = [porodica_za(track_id) for track_id in rang_liste[upit]]
+        vrednosti.append(mera(lista, ocene_za_mere(podaci)))
+    return sum(vrednosti) / len(vrednosti) if vrednosti else 0.0
+
+
 def grupa(podaci_upita):
     """Jedna od tri grupe za koje se mere prikazuju posebno."""
     if podaci_upita["skup"] == TEMA:
-        return "tematski"
+        return TEMATSKI
     if podaci_upita["tipfeler"]:
-        return "jedna pesma, sa greskom"
-    return "jedna pesma, bez greske"
+        return SA_GRESKOM
+    return BEZ_GRESKE
