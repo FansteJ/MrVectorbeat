@@ -2,14 +2,14 @@ from mrvectorbeat import tekst
 from mrvectorbeat.postings import presek, razlika, unija
 
 
-def _pocetci_sa_pomakom(pocetci, pozicije, pomak):
-    """Pocetci s za koje je s + pomak u pozicije. Obe liste su sortirane."""
+def _poceci_sa_pomakom(poceci, pozicije, pomak):
+    """Poceci s za koje je s + pomak u pozicije. Obe liste su sortirane."""
     i = j = 0
     rezultat = []
-    while i < len(pocetci) and j < len(pozicije):
-        trazena = pocetci[i] + pomak
+    while i < len(poceci) and j < len(pozicije):
+        trazena = poceci[i] + pomak
         if trazena == pozicije[j]:
-            rezultat.append(pocetci[i])
+            rezultat.append(poceci[i])
             i += 1
             j += 1
         elif trazena < pozicije[j]:
@@ -25,10 +25,10 @@ def _spoji_sa_pomakom(kandidati, postings, pomak):
     i = j = 0
     rezultat = []
     while i < len(kandidati) and j < len(postings):
-        pesma_a, pocetci = kandidati[i]
+        pesma_a, poceci = kandidati[i]
         pesma_b, pozicije = postings[j]
         if pesma_a == pesma_b:
-            ostali = _pocetci_sa_pomakom(pocetci, pozicije, pomak)
+            ostali = _poceci_sa_pomakom(poceci, pozicije, pomak)
             if ostali:
                 rezultat.append((pesma_a, ostali))
             i += 1
