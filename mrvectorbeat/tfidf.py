@@ -44,3 +44,34 @@ class TfIdfModel:
             for id_pesme, pozicije in indeks.postings_za(termin):
                 ocene[id_pesme] = ocene.get(id_pesme, 0.0) + tf_tezina(len(pozicije)) * idf
         return sorted(ocene.items(), key=lambda par: par[1], reverse=True)
+
+    def vektor_upita(self, termini):
+        """ltc tezine upita i norma vektora. Termini kojih nema u indeksu se preskacu."""
+        brojevi = {}
+        for termin in termini:
+            brojevi[termin] = brojevi.get(termin, 0) + 1
+        tezine = {}
+        for termin, broj in brojevi.items():
+            if termin in self.idf:
+                tezine[termin] = tf_tezina(broj) * self.idf[termin]
+        norma = math.sqrt(sum(w * w for w in tezine.values()))
+        return tezine, norma
+
+    def kosinus(self, indeks, upit):
+        """Kosinusna slicnost lnc.ltc izmedju upita i pesama koje sadrze bar jednu rec upita.
+        Vraca [(id pesme, slicnost), ...] od najvece ka najmanjoj."""
+        tezine, norma = self.vektor_upita(tekst.obradi(upit))
+        return self._kosinus_za_vektor(indeks, tezine, norma)
+
+    def _kosinus_za_vektor(self, indeks, tezine_upita, norma_upita):
+        if norma_upita == 0:
+            return []
+        # skalarni proizvod samo po zajednickim terminima, sabran termin po termin
+        proizvodi = {}
+        for termin, w_upit in tezine_upita.items():
+            for id_pesme, pozicije in indeks.postings_za(termin):
+                w_pesma = tf_tezina(len(pozicije))     # lnc: bez idf
+                proizvodi[id_pesme] = proizvodi.get(id_pesme, 0.0) + w_upit * w_pesma
+        slicnosti = [(id_pesme, proizvod / (norma_upita * self.duzina_lnc[id_pesme]))
+                     for id_pesme, proizvod in proizvodi.items()]
+        return sorted(slicnosti, key=lambda par: par[1], reverse=True)
