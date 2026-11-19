@@ -40,7 +40,8 @@ ind = pipeline.napravi_indeks()
 print(f"Invertovani indeks: {len(ind.postings)} termina, {len(ind.track_ids)} pesama")
 
 # TF-IDF model
-pipeline.napravi_tfidf()
+tfidf = pipeline.napravi_tfidf()
+print(f"TF-IDF model: idf za {len(tfidf.idf)} termina, duzine vektora za {tfidf.broj_pesama} pesama")
 
 # BM25 i evaluacija
 pipeline.napravi_bm25()

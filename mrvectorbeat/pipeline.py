@@ -23,6 +23,7 @@ import pandas as pd
 from mrvectorbeat import katalog, tekst
 from mrvectorbeat.indeks import PozicioniIndeks
 from mrvectorbeat.kgram import KgramIndeks
+from mrvectorbeat.tfidf import TfIdfModel
 from mrvectorbeat.trie import PrefiksnoStablo
 
 KOREN = Path(__file__).resolve().parent.parent
@@ -165,13 +166,15 @@ def ucitaj_indeks():
 
 
 def napravi_tfidf():
-    """Gradi TF-IDF model i snima ga u artifacts/."""
-    pass
+    """Gradi TF-IDF model (idf termina, duzine vektora pesama) i snima ga u artifacts/."""
+    model = TfIdfModel(ucitaj_indeks())
+    _snimi(model, "tfidf.pkl")
+    return model
 
 
 def ucitaj_tfidf():
     """Cita gotov TF-IDF model iz artifacts/."""
-    pass
+    return _ucitaj("tfidf.pkl")
 
 
 def napravi_bm25():
