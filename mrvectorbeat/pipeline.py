@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from mrvectorbeat import katalog, tekst
+from mrvectorbeat import katalog, rangiranje, tekst
 from mrvectorbeat.bm25 import BM25Model
 from mrvectorbeat.indeks import PozicioniIndeks
 from mrvectorbeat.kgram import KgramIndeks
@@ -203,14 +203,29 @@ def ucitaj_qrels(skup=None):
 
 
 def napravi_evaluaciju():
-    """Racuna metrike za TF-IDF i BM25 nad qrels i snima tabelu u
-    artifacts/."""
-    pass
+    """Rangira sve upite iz qrels kroz sva tri modela, istom funkcijom kao strana
+    Stihovi, i snima rang-liste u artifacts/. Mere racuna strana Evaluacija.
+    Vraca: {model: {upit: [track_id, ...]}}, cele liste, od najbolje pesme."""
+    indeks = ucitaj_indeks()
+    tfidf_model = ucitaj_tfidf()
+    bm25_model = ucitaj_bm25()
+    porodice = ucitaj_porodice()
+    upiti = ucitaj_qrels()["upit"].unique()
+
+    rang_liste = {}
+    for model in rangiranje.MODELI:
+        rang_liste[model] = {}
+        for upit in upiti:
+            # upiti sa greskom u kucanju se ne ispravljaju
+            rangirano = rangiranje.rangiraj(model, upit, indeks, tfidf_model, bm25_model, porodice)
+            rang_liste[model][upit] = [indeks.track_ids[id_pesme] for id_pesme, _ in rangirano]
+    _snimi(rang_liste, "evaluacija.pkl")
+    return rang_liste
 
 
 def ucitaj_evaluaciju():
-    """Cita gotovu tabelu metrika iz artifacts/."""
-    pass
+    """Cita gotove rang-liste iz artifacts/."""
+    return _ucitaj("evaluacija.pkl")
 
 
 def napravi_jezicki(mu=1000.0):

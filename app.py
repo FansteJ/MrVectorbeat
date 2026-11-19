@@ -21,7 +21,7 @@ import math
 import streamlit as st
 from st_keyup import st_keyup
 
-from mrvectorbeat import isecak, pipeline, prikaz, tekst, tfidf, trie
+from mrvectorbeat import isecak, pipeline, prikaz, rangiranje, tekst, trie
 
 # OVDE IDU importi vasih modula, npr.:
 #   from mrvectorbeat import upit, indeks, tfidf, bm25, ...
@@ -395,21 +395,14 @@ elif strana == "Stihovi":
     unet_upit = False
     if rezim == "Rangirano":
         k1, k2 = st.columns([1, 4])
-        mera = k1.selectbox("Mera", ["TF-IDF", "Kosinus (lnc.ltc)", "BM25"])
+        mera = k1.selectbox("Mera", rangiranje.MODELI)
         upit = k2.text_input("Upit", placeholder="npr. dancing in the moonlight")
         if upit:
             unet_upit = True
             termini = tekst.obradi(upit)
             trazeni = termini
-            if mera == "TF-IDF":
-                rangirano = tfidf_model.tfidf(ind, upit)
-            elif mera == "BM25":
-                rangirano = bm25_model.bm25(ind, upit)
-            else:
-                rangirano = tfidf_model.kosinus(ind, upit)
-            # od vise verzija iste pesme ostaje samo najbolje ocenjena
-            rangirano = tfidf.najbolja_iz_porodice(
-                rangirano, lambda id_pesme: porodice[ind.track_ids[id_pesme]])
+            # ista funkcija se koristi i za evaluaciju, pa se meri bas ova lista
+            rangirano = rangiranje.rangiraj(mera, upit, ind, tfidf_model, bm25_model, porodice)
             for id_pesme, ocena in rangirano:
                 pogoci.append((ind.track_ids[id_pesme], None, True, ocena))
 

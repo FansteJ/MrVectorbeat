@@ -46,7 +46,8 @@ print(f"TF-IDF model: idf za {len(tfidf.idf)} termina, duzine vektora za {tfidf.
 # BM25 i evaluacija
 bm25 = pipeline.napravi_bm25()
 print(f"BM25 model: prosecna duzina pesme {bm25.prosecna_duzina:.1f} termina, k1={bm25.k1}, b={bm25.b}")
-pipeline.napravi_evaluaciju()
+rang_liste = pipeline.napravi_evaluaciju()
+print(f"Evaluacija: rang-liste za {len(next(iter(rang_liste.values())))} upita kroz {len(rang_liste)} modela")
 
 # Jezicki model
 pipeline.napravi_jezicki()
