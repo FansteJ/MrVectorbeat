@@ -1,4 +1,5 @@
 import math
+from collections import Counter
 
 from mrvectorbeat import tekst
 
@@ -86,6 +87,25 @@ class TfIdfModel:
         moja_porodica = porodica_za(id_pesme)
         bez_verzija = [(i, s) for i, s in rangirano if porodica_za(i) != moja_porodica]
         return najbolja_iz_porodice(bez_verzija, porodica_za)[:k]
+
+    def doprinos_reci(self, id_a, termini_a, id_b, termini_b, k=10):
+        """Koliko svaka zajednicka rec doprinosi kosinusu izmedju pesme a (upit, ltc)
+        i pesme b (dokument, lnc). Kosinus je zbir doprinosa svih zajednickih reci.
+        Vraca (kosinus, [(termin, broj u a, broj u b, udeo u kosinusu), ...]) za k najvecih."""
+        tezine_a, _ = self.vektor_upita(termini_a)
+        brojevi_a, brojevi_b = Counter(termini_a), Counter(termini_b)
+        imenilac = self.duzina_ltc[id_a] * self.duzina_lnc[id_b]
+
+        doprinosi = []
+        for termin, w_a in tezine_a.items():
+            if termin in brojevi_b:
+                doprinos = w_a * tf_tezina(brojevi_b[termin]) / imenilac
+                doprinosi.append((termin, brojevi_a[termin], brojevi_b[termin], doprinos))
+        kosinus = sum(d for _, _, _, d in doprinosi)
+        if kosinus == 0:
+            return 0.0, []
+        doprinosi.sort(key=lambda x: x[3], reverse=True)
+        return kosinus, [(t, ba, bb, d / kosinus) for t, ba, bb, d in doprinosi[:k]]
 
     def _kosinus_za_vektor(self, indeks, tezine_upita, norma_upita):
         if norma_upita == 0:
