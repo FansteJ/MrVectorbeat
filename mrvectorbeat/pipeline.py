@@ -21,6 +21,7 @@ from pathlib import Path
 import pandas as pd
 
 from mrvectorbeat import katalog, tekst
+from mrvectorbeat.bm25 import BM25Model
 from mrvectorbeat.indeks import PozicioniIndeks
 from mrvectorbeat.kgram import KgramIndeks
 from mrvectorbeat.tfidf import TfIdfModel
@@ -179,13 +180,15 @@ def ucitaj_tfidf():
 
 
 def napravi_bm25():
-    """Gradi BM25 model i snima ga u artifacts/."""
-    pass
+    """Gradi BM25 model (duzine pesama, prosecna duzina, idf) i snima ga u artifacts/."""
+    model = BM25Model(ucitaj_indeks())
+    _snimi(model, "bm25.pkl")
+    return model
 
 
 def ucitaj_bm25():
     """Cita gotov BM25 model iz artifacts/."""
-    pass
+    return _ucitaj("bm25.pkl")
 
 
 def ucitaj_qrels(skup=None):

@@ -44,7 +44,8 @@ tfidf = pipeline.napravi_tfidf()
 print(f"TF-IDF model: idf za {len(tfidf.idf)} termina, duzine vektora za {tfidf.broj_pesama} pesama")
 
 # BM25 i evaluacija
-pipeline.napravi_bm25()
+bm25 = pipeline.napravi_bm25()
+print(f"BM25 model: prosecna duzina pesme {bm25.prosecna_duzina:.1f} termina, k1={bm25.k1}, b={bm25.b}")
 pipeline.napravi_evaluaciju()
 
 # Jezicki model

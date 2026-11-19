@@ -186,6 +186,7 @@ izvodjaci = ucitaj_izvodjace()
 ucitaj_sbert()
 zagrej_ollama()
 tfidf_model = ucitaj_tfidf()
+bm25_model = ucitaj_bm25()
 
 
 # Ucitani modeli imaju milione objekata koji se nikad ne brisu, a Python-ov
@@ -394,7 +395,7 @@ elif strana == "Stihovi":
     unet_upit = False
     if rezim == "Rangirano":
         k1, k2 = st.columns([1, 4])
-        mera = k1.selectbox("Mera", ["TF-IDF", "Kosinus (lnc.ltc)"])
+        mera = k1.selectbox("Mera", ["TF-IDF", "Kosinus (lnc.ltc)", "BM25"])
         upit = k2.text_input("Upit", placeholder="npr. dancing in the moonlight")
         if upit:
             unet_upit = True
@@ -402,6 +403,8 @@ elif strana == "Stihovi":
             trazeni = termini
             if mera == "TF-IDF":
                 rangirano = tfidf_model.tfidf(ind, upit)
+            elif mera == "BM25":
+                rangirano = bm25_model.bm25(ind, upit)
             else:
                 rangirano = tfidf_model.kosinus(ind, upit)
             # od vise verzija iste pesme ostaje samo najbolje ocenjena
