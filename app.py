@@ -532,6 +532,50 @@ elif strana == "Evaluacija":
         st.table(stil)
         st.caption(f"Glavna mera za ovu grupu: {glavna}. Vrednosti su proseci preko {broj} upita.")
 
+    # --- Pregled jednog upita ---
+    st.header("Pregled upita")
+    katalog_po_id = ucitaj_katalog_po_id()
+    rang_liste = ucitaj_evaluaciju()
+
+    def bez_markdown(tekst_naslova):
+        # [ ] bi zatvorile :green[...] pre vremena, a * _ ` bi menjali izgled
+        tekst_naslova = tekst_naslova.replace("[", "(").replace("]", ")")
+        for znak in "*_`~#$\\":
+            tekst_naslova = tekst_naslova.replace(znak, "\\" + znak)
+        return tekst_naslova
+
+    BOJA = {2: "green", 1: "blue", 0: "gray"}
+
+    k1, k2 = st.columns([1, 3])
+    izabrana_grupa = k1.selectbox("Grupa", evaluacija.GRUPE, format_func=lambda g: NASLOVI[g])
+    upiti_grupe = sorted(u for u, p in upiti_eval.items() if evaluacija.grupa(p) == izabrana_grupa)
+    upit = k2.selectbox("Upit", upiti_grupe)
+    podaci = upiti_eval[upit]
+
+    if podaci["skup"] == evaluacija.POZNATA:
+        trazene = [t for t in katalog_po_id.index if porodice[t] in evaluacija.ocene_za_mere(podaci)]
+        naslovi = sorted({f"{katalog_po_id.loc[t, 'track_name']} · {katalog_po_id.loc[t, 'track_artist']}"
+                          for t in trazene})
+        st.caption("Trazena pesma: " + "; ".join(naslovi))
+    st.caption(":green[zeleno] ocena 2 · :blue[plavo] ocena 1 · :gray[sivo] ocena 0 (nije u fajlu)")
+
+    kolone = st.columns(len(rangiranje.MODELI))
+    for kolona, model in zip(kolone, rangiranje.MODELI):
+        with kolona:
+            st.subheader(model)
+            prvih_5 = rang_liste[model][upit][:5]
+            if not prvih_5:
+                st.write("Model nije vratio nijednu pesmu.")
+            for mesto, track_id in enumerate(prvih_5, start=1):
+                red = katalog_po_id.loc[track_id]
+                ocena = podaci["ocene"].get(porodice[track_id], 0)
+                st.markdown(f":{BOJA[ocena]}[{mesto}. {bez_markdown(red['track_name'])}]  \n"
+                            f"<span style='color:#8b8b98; font-size:13px'>"
+                            f"{html.escape(red['track_artist'])}</span>", unsafe_allow_html=True)
+            vrednosti = mere_eval[model][upit]
+            # za jedan upit mere su RR i AP; MRR i MAP su njihovi proseci u tabelama
+            st.markdown(" · ".join(f"**{ime}** {vrednost:.3f}" for ime, vrednost in vrednosti.items()))
+
 
 # --- Izvodjaci ---------------------------------------------------------
 
