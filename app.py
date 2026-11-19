@@ -318,6 +318,73 @@ elif strana == "Stihovi":
 
     MAKS_REZULTATA = 20
     katalog_po_id = ucitaj_katalog_po_id()
+
+    def porodica_za(id_pesme):
+        return porodice[ind.track_ids[id_pesme]]
+
+    def delovi_u_html(delovi):
+        return "".join(f"<span class='rezultat'>{html.escape(deo)}</span>" if istaknut
+                       else html.escape(deo) for deo, istaknut in delovi)
+
+    # on_click se izvrsava pre ponovnog pokretanja skripta, pa je stanje
+    # uskladjeno i otvoren je uvek tacno jedan panel
+    def otvori_slicne(track_id):
+        st.session_state.slicne_za = track_id
+        st.session_state.par = None
+
+    def zatvori_slicne():
+        st.session_state.slicne_za = None
+        st.session_state.par = None
+
+    def izaberi_par(track_id):
+        st.session_state.par = track_id
+
+    def prikazi_par(id_a, red_a, termini_a, id_b, red_b):
+        termini_b = tekst.obradi(red_b["lyrics"])
+        _, reci = tfidf_model.doprinos_reci(id_a, termini_a, id_b, termini_b)
+        najvaznije = {termin for termin, *_ in reci}
+        oblici = isecak.oblici_termina([red_a["lyrics"], red_b["lyrics"]], najvaznije)
+
+        st.markdown("**Reci koje najvise doprinose slicnosti**")
+        st.table([{"Rec": oblici[termin],
+                   f"Puta u: {red_a['track_name']}": u_a,
+                   f"Puta u: {red_b['track_name']}": u_b,
+                   "Udeo u slicnosti": f"{udeo * 100:.1f}%"}
+                  for termin, u_a, u_b, udeo in reci])
+
+        levo, desno = st.columns(2)
+        for kolona, red in [(levo, red_a), (desno, red_b)]:
+            with kolona:
+                st.markdown(f"**{html.escape(red['track_name'])}** · {html.escape(red['track_artist'])}",
+                            unsafe_allow_html=True)
+                tekst_pesme = delovi_u_html(isecak.istakni(red["lyrics"], najvaznije))
+                st.markdown(f"<div style='max-height:420px; overflow-y:auto; font-size:14px; "
+                            f"line-height:1.7; color:#c8c8d0'>{tekst_pesme}</div>",
+                            unsafe_allow_html=True)
+
+    def prikazi_slicne(track_id):
+        id_a = ind.track_ids.index(track_id)
+        red_a = katalog_po_id.loc[track_id]
+        termini_a = tekst.obradi(red_a["lyrics"])
+        slicne = tfidf_model.slicne(ind, id_a, termini_a, porodica_za)
+
+        with st.container(border=True):
+            k1, k2 = st.columns([7, 1])
+            k1.markdown(f"**Slicne pesme:** {html.escape(red_a['track_name'])} · "
+                        f"{html.escape(red_a['track_artist'])}", unsafe_allow_html=True)
+            k2.button("Zatvori", key=f"zatvori_{track_id}", on_click=zatvori_slicne)
+            if not slicne:
+                st.info("Nema pesama sa slicnim tekstom.")
+            for mesto_b, (id_b, slicnost) in enumerate(slicne, start=1):
+                track_id_b = ind.track_ids[id_b]
+                red_b = katalog_po_id.loc[track_id_b]
+                k1, k2 = st.columns([7, 1])
+                with k1:
+                    prikaz.kartica(mesto_b, red_b, skor=slicnost)
+                k2.button("Uporedi", key=f"uporedi_{track_id}_{track_id_b}",
+                          on_click=izaberi_par, args=(track_id_b,))
+                if st.session_state.get("par") == track_id_b:
+                    prikazi_par(id_a, red_a, termini_a, id_b, red_b)
     rezim = st.radio("Rezim", ["Rangirano", "Bulov", "Frazni", "Blizina"], horizontal=True,
                      label_visibility="collapsed")
 
@@ -401,16 +468,21 @@ elif strana == "Stihovi":
 
             for mesto, (track_id, pozicije, raspon, ocena) in enumerate(pogoci[:MAKS_REZULTATA], start=1):
                 red = katalog_po_id.loc[track_id]
-                prikaz.kartica(mesto, red, skor=ocena)
+                if rezim == "Rangirano":
+                    k1, k2 = st.columns([7, 1])
+                    with k1:
+                        prikaz.kartica(mesto, red, skor=ocena)
+                    k2.button("Slicne pesme", key=f"slicne_{track_id}",
+                              on_click=otvori_slicne, args=(track_id,))
+                else:
+                    prikaz.kartica(mesto, red, skor=ocena)
                 if pozicije is None:
                     pozicije = [isecak.prvo_pojavljivanje(red["lyrics"], trazeni)]
                 delovi = isecak.isecak(red["lyrics"], pozicije, raspon=raspon)
-                tekst_isecka = "".join(
-                    f"<span class='rezultat'>{html.escape(deo)}</span>" if istaknut else html.escape(deo)
-                    for deo, istaknut in delovi
-                )
                 st.markdown(f"<div style='color:#a8a8b3; font-size:14px; margin:-4px 0 16px 50px'>"
-                            f"{tekst_isecka}</div>", unsafe_allow_html=True)
+                            f"{delovi_u_html(delovi)}</div>", unsafe_allow_html=True)
+                if rezim == "Rangirano" and st.session_state.get("slicne_za") == track_id:
+                    prikazi_slicne(track_id)
 
 
 # --- Jezicki model -----------------------------------------------------
