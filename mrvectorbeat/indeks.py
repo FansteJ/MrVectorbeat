@@ -2,6 +2,44 @@ from mrvectorbeat import tekst
 from mrvectorbeat.postings import presek, razlika, unija
 
 
+def _pocetci_sa_pomakom(pocetci, pozicije, pomak):
+    """Pocetci s za koje je s + pomak u pozicije. Obe liste su sortirane."""
+    i = j = 0
+    rezultat = []
+    while i < len(pocetci) and j < len(pozicije):
+        trazena = pocetci[i] + pomak
+        if trazena == pozicije[j]:
+            rezultat.append(pocetci[i])
+            i += 1
+            j += 1
+        elif trazena < pozicije[j]:
+            i += 1
+        else:
+            j += 1
+    return rezultat
+
+
+def _spoji_sa_pomakom(kandidati, postings, pomak):
+    """Spaja po pesmama (kao presek), a u zajednickim pesmama zadrzava samo
+    pocetke fraze iza kojih je ovaj termin tacno pomak mesta dalje."""
+    i = j = 0
+    rezultat = []
+    while i < len(kandidati) and j < len(postings):
+        pesma_a, pocetci = kandidati[i]
+        pesma_b, pozicije = postings[j]
+        if pesma_a == pesma_b:
+            ostali = _pocetci_sa_pomakom(pocetci, pozicije, pomak)
+            if ostali:
+                rezultat.append((pesma_a, ostali))
+            i += 1
+            j += 1
+        elif pesma_a < pesma_b:
+            i += 1
+        else:
+            j += 1
+    return rezultat
+
+
 class PozicioniIndeks:
     def __init__(self):
         self.track_ids = []     # id pesme -> track_id iz kataloga
@@ -72,3 +110,19 @@ class PozicioniIndeks:
         if operator == "BEZ":
             return self.bez_upit(termini)
         raise ValueError(f"Nepoznat operator: {operator}")
+
+    # --- Pozicioni upiti ---
+
+    def frazni(self, upit):
+        """Pesme u kojima reci upita stoje jedna za drugom, tim redom.
+        Vraca [(id pesme, [pocetne pozicije fraze]), ...]."""
+        termini = tekst.obradi(upit)
+        if not termini:
+            return []
+        # kandidati: svaka pozicija prve reci je moguci pocetak fraze
+        kandidati = self.postings_za(termini[0])
+        for pomak, termin in enumerate(termini[1:], start=1):
+            if not kandidati:
+                break
+            kandidati = _spoji_sa_pomakom(kandidati, self.postings_za(termin), pomak)
+        return kandidati
