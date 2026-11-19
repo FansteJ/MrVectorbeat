@@ -18,10 +18,11 @@ import gc
 import html
 import math
 
+import pandas as pd
 import streamlit as st
 from st_keyup import st_keyup
 
-from mrvectorbeat import isecak, pipeline, prikaz, rangiranje, tekst, trie
+from mrvectorbeat import evaluacija, isecak, pipeline, prikaz, rangiranje, tekst, trie
 
 # OVDE IDU importi vasih modula, npr.:
 #   from mrvectorbeat import upit, indeks, tfidf, bm25, ...
@@ -74,7 +75,8 @@ def ucitaj_bm25():
     return pipeline.ucitaj_bm25()
 
 
-@st.cache_data
+# cache_resource: rang-liste imaju ~18 MB, a cache_data bi ih kopirao pri svakom kliku
+@st.cache_resource
 def ucitaj_evaluaciju():
     return pipeline.ucitaj_evaluaciju()
 
@@ -498,6 +500,37 @@ elif strana == "Evaluacija":
 
     # Koristi: ucitaj_evaluaciju(), ucitaj_qrels(), ucitaj_tfidf(),
     #          ucitaj_bm25(), ind, df, prikaz.kartica()
+
+    # rang-liste je napravio scripts.pripremi; ovde se nad njima samo racunaju mere,
+    # jednom (za AP se prolazi kroz cele liste, pa ne sme pri svakom kliku)
+    @st.cache_resource
+    def izracunaj_mere():
+        upiti = evaluacija.ocene_po_porodicama(ucitaj_qrels(), porodice.get)
+        return upiti, evaluacija.mere_svih_upita(ucitaj_evaluaciju(), upiti, porodice.get)
+
+    upiti_eval, mere_eval = izracunaj_mere()
+
+    NAZIVI_KOLONA = {"P@5": "P@5", "RR": "MRR", "AP": "MAP", "nDCG@5": "nDCG@5"}
+    GLAVNA_MERA = {evaluacija.BEZ_GRESKE: "MRR", evaluacija.SA_GRESKOM: "MRR",
+                   evaluacija.TEMATSKI: "nDCG@5"}
+    NASLOVI = {evaluacija.BEZ_GRESKE: "Upiti za jednu pesmu, bez greske",
+               evaluacija.SA_GRESKOM: "Upiti za jednu pesmu, sa greskom u kucanju",
+               evaluacija.TEMATSKI: "Tematski upiti"}
+
+    st.header("Mere po grupama upita")
+    for grupa in evaluacija.GRUPE:
+        broj = sum(1 for p in upiti_eval.values() if evaluacija.grupa(p) == grupa)
+        glavna = GLAVNA_MERA[grupa]
+        st.subheader(f"{NASLOVI[grupa]} ({broj} upita)")
+        proseci = evaluacija.proseci_grupe(mere_eval, upiti_eval, grupa)
+        tabela = pd.DataFrame(proseci).T.rename(columns=NAZIVI_KOLONA)
+        tabela.index.name = "Model"
+        # najbolji model u svakoj koloni podebljan, glavna mera obojena
+        stil = (tabela.style.format("{:.3f}")
+                .highlight_max(axis=0, props="font-weight:bold")
+                .set_properties(subset=[glavna], **{"color": "#32a852"}))
+        st.table(stil)
+        st.caption(f"Glavna mera za ovu grupu: {glavna}. Vrednosti su proseci preko {broj} upita.")
 
 
 # --- Izvodjaci ---------------------------------------------------------

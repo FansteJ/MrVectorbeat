@@ -83,6 +83,28 @@ def ocene_za_mere(podaci_upita):
     return ocene
 
 
+def mere_svih_upita(rang_liste, upiti, porodica_za):
+    """Sve cetiri mere za svaki upit i svaki model.
+    rang_liste: {model: {upit: [track_id, ...]}}.
+    Vraca {model: {upit: {ime mere: vrednost}}}."""
+    rezultat = {}
+    for model, liste in rang_liste.items():
+        rezultat[model] = {}
+        for upit, podaci in upiti.items():
+            lista = [porodica_za(track_id) for track_id in liste[upit]]
+            ocene = ocene_za_mere(podaci)
+            rezultat[model][upit] = {ime: mera(lista, ocene) for ime, mera in MERE.items()}
+    return rezultat
+
+
+def proseci_grupe(mere, upiti, ime_grupe):
+    """Prosek svake mere preko upita jedne grupe, za svaki model.
+    Vraca {model: {ime mere: prosek}}."""
+    u_grupi = [upit for upit, podaci in upiti.items() if grupa(podaci) == ime_grupe]
+    return {model: {ime: sum(po_upitu[u][ime] for u in u_grupi) / len(u_grupi) for ime in MERE}
+            for model, po_upitu in mere.items()}
+
+
 def prosek_mere(mera, rang_liste, upiti, porodica_za, ime_grupe):
     """Prosek mere preko upita jedne grupe.
     rang_liste: {upit: [track_id, ...]}, upiti: iz ocene_po_porodicama."""
