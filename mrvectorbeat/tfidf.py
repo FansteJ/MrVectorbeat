@@ -76,6 +76,17 @@ class TfIdfModel:
         tezine, norma = self.vektor_upita(tekst.obradi(upit))
         return self._kosinus_za_vektor(indeks, tezine, norma)
 
+    def slicne(self, indeks, id_pesme, termini, porodica_za, k=10):
+        """Pesme ciji je tekst najslicniji pesmi id_pesme (kosinus lnc.ltc, pesma je upit).
+        termini su obradjeni stihovi te pesme. Pesme iste porodice se izbacuju.
+        Vraca najvise k parova (id pesme, slicnost)."""
+        tezine, _ = self.vektor_upita(termini)
+        # norma pesme kao upita je izracunata unapred, pri gradnji modela
+        rangirano = self._kosinus_za_vektor(indeks, tezine, self.duzina_ltc[id_pesme])
+        moja_porodica = porodica_za(id_pesme)
+        bez_verzija = [(i, s) for i, s in rangirano if porodica_za(i) != moja_porodica]
+        return najbolja_iz_porodice(bez_verzija, porodica_za)[:k]
+
     def _kosinus_za_vektor(self, indeks, tezine_upita, norma_upita):
         if norma_upita == 0:
             return []
