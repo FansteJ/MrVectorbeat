@@ -1,12 +1,10 @@
-from mrvectorbeat import tekst
-
-
 class PozicioniIndeks:
     def __init__(self):
         self.track_ids = []     # id pesme -> track_id iz kataloga
         self.postings = {}      # termin -> [(id pesme, [pozicije]), ...], sortirano po id-ju
 
-    def dodaj(self, track_id, stihovi):
+    def dodaj(self, track_id, termini):
+        """termini su vec obradjen stih (tokeni iz Nedelje 1)."""
         # id-jevi rastu redom dodavanja, pa su postings liste sortirane bez sortiranja
         id_pesme = len(self.track_ids)
         self.track_ids.append(track_id)
@@ -14,7 +12,7 @@ class PozicioniIndeks:
         # pozicija je redni broj termina u obradjenom stihu (bez stop-reci),
         # pa su reci fraze susedne ako su na uzastopnim pozicijama
         pozicije_termina = {}
-        for pozicija, termin in enumerate(tekst.obradi(stihovi)):
+        for pozicija, termin in enumerate(termini):
             pozicije_termina.setdefault(termin, []).append(pozicija)
         for termin, pozicije in pozicije_termina.items():
             self.postings.setdefault(termin, []).append((id_pesme, pozicije))
