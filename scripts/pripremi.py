@@ -36,7 +36,8 @@ kg = pipeline.napravi_kgram()
 print(f"K-gramski indeks: {len(kg.imena)} imena, {len(kg.postings)} k-grama")
 
 # Invertovani indeks
-pipeline.napravi_indeks()
+ind = pipeline.napravi_indeks()
+print(f"Invertovani indeks: {len(ind.postings)} termina, {len(ind.track_ids)} pesama")
 
 # TF-IDF model
 pipeline.napravi_tfidf()

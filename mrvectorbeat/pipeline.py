@@ -21,6 +21,7 @@ from pathlib import Path
 import pandas as pd
 
 from mrvectorbeat import katalog, tekst
+from mrvectorbeat.indeks import PozicioniIndeks
 from mrvectorbeat.kgram import KgramIndeks
 from mrvectorbeat.trie import PrefiksnoStablo
 
@@ -149,12 +150,18 @@ def ucitaj_kgram():
 
 def napravi_indeks():
     """Gradi invertovani indeks iz tokena i snima ga u artifacts/."""
-    pass
+    df = ucitaj_katalog()
+    tokeni = ucitaj_tokene()
+    indeks = PozicioniIndeks()
+    for track_id in df["track_id"]:
+        indeks.dodaj(track_id, tokeni[track_id])
+    _snimi(indeks, "indeks.pkl")
+    return indeks
 
 
 def ucitaj_indeks():
     """Cita gotov indeks iz artifacts/."""
-    pass
+    return _ucitaj("indeks.pkl")
 
 
 def napravi_tfidf():
