@@ -3,6 +3,19 @@ import math
 from mrvectorbeat import tekst
 
 
+def najbolja_iz_porodice(rangirano, porodica_za):
+    """Iz liste [(kljuc, ocena), ...] sortirane od najbolje zadrzava samo prvu,
+    tj. najbolje ocenjenu verziju svake porodice. porodica_za(kljuc) -> porodica."""
+    vidjene = set()
+    rezultat = []
+    for kljuc, ocena in rangirano:
+        porodica = porodica_za(kljuc)
+        if porodica not in vidjene:
+            vidjene.add(porodica)
+            rezultat.append((kljuc, ocena))
+    return rezultat
+
+
 def tf_tezina(broj):
     """l: broj pojavljivanja prigusen logaritmom."""
     return 1 + math.log10(broj)

@@ -21,7 +21,7 @@ import math
 import streamlit as st
 from st_keyup import st_keyup
 
-from mrvectorbeat import isecak, pipeline, prikaz, tekst, trie
+from mrvectorbeat import isecak, pipeline, prikaz, tekst, tfidf, trie
 
 # OVDE IDU importi vasih modula, npr.:
 #   from mrvectorbeat import upit, indeks, tfidf, bm25, ...
@@ -318,14 +318,32 @@ elif strana == "Stihovi":
 
     MAKS_REZULTATA = 20
     katalog_po_id = ucitaj_katalog_po_id()
-    rezim = st.radio("Rezim", ["Bulov", "Frazni", "Blizina"], horizontal=True,
+    rezim = st.radio("Rezim", ["Rangirano", "Bulov", "Frazni", "Blizina"], horizontal=True,
                      label_visibility="collapsed")
 
-    # pogodak: (track_id, pozicije za isecak, da li se istice ceo raspon)
+    # pogodak: (track_id, pozicije za isecak, da li se istice ceo raspon, ocena ili None)
     pogoci = []
     termini = []
     unet_upit = False
-    if rezim == "Bulov":
+    if rezim == "Rangirano":
+        k1, k2 = st.columns([1, 4])
+        mera = k1.selectbox("Mera", ["TF-IDF", "Kosinus (lnc.ltc)"])
+        upit = k2.text_input("Upit", placeholder="npr. dancing in the moonlight")
+        if upit:
+            unet_upit = True
+            termini = tekst.obradi(upit)
+            trazeni = termini
+            if mera == "TF-IDF":
+                rangirano = tfidf_model.tfidf(ind, upit)
+            else:
+                rangirano = tfidf_model.kosinus(ind, upit)
+            # od vise verzija iste pesme ostaje samo najbolje ocenjena
+            rangirano = tfidf.najbolja_iz_porodice(
+                rangirano, lambda id_pesme: porodice[ind.track_ids[id_pesme]])
+            for id_pesme, ocena in rangirano:
+                pogoci.append((ind.track_ids[id_pesme], None, True, ocena))
+
+    elif rezim == "Bulov":
         k1, k2 = st.columns([1, 4])
         operator = k1.selectbox("Operator", ["I", "ILI", "BEZ"],
                                 help="I: sve reci · ILI: bar jedna · BEZ: prva rec, a bez ostalih")
@@ -336,7 +354,7 @@ elif strana == "Stihovi":
             # Bulova pretraga ne vraca pozicije; mesto za isecak se trazi tek pri
             # prikazu (pozicije = None), samo za prikazane pesme
             for id_pesme in ind.bulova(upit, operator):
-                pogoci.append((ind.track_ids[id_pesme], None, True))
+                pogoci.append((ind.track_ids[id_pesme], None, True, None))
             # kod BEZ se isecak pravi oko prve reci, jer ostale ne smeju da se jave
             trazeni = termini[:1] if operator == "BEZ" else termini
 
@@ -348,7 +366,7 @@ elif strana == "Stihovi":
             for id_pesme, poceci in ind.frazni(upit):
                 # isecak oko prvog pogotka: sve reci fraze od tog pocetka
                 pozicije = [poceci[0] + k for k in range(len(termini))]
-                pogoci.append((ind.track_ids[id_pesme], pozicije, True))
+                pogoci.append((ind.track_ids[id_pesme], pozicije, True, None))
 
     else:
         k1, k2, k3 = st.columns([2, 2, 1])
@@ -360,7 +378,7 @@ elif strana == "Stihovi":
             termini = tekst.obradi(rec1) + tekst.obradi(rec2)
             try:
                 for id_pesme, parovi in ind.blizina(rec1, rec2, rastojanje):
-                    pogoci.append((ind.track_ids[id_pesme], list(parovi[0]), False))
+                    pogoci.append((ind.track_ids[id_pesme], list(parovi[0]), False, None))
             except ValueError as e:
                 st.warning(str(e))
 
@@ -370,19 +388,20 @@ elif strana == "Stihovi":
         elif not pogoci:
             st.info("Nijedna pesma ne odgovara upitu.")
         else:
-            # dok nema rangiranja (TF-IDF), popularnije pesme idu prve
-            popularnost = katalog_po_id.loc[[p[0] for p in pogoci], "track_popularity"].tolist()
-            redosled = sorted(range(len(pogoci)), key=lambda i: popularnost[i], reverse=True)
-            pogoci = [pogoci[i] for i in redosled]
+            if rezim != "Rangirano":
+                # rezimi bez ocene: popularnije pesme idu prve
+                popularnost = katalog_po_id.loc[[p[0] for p in pogoci], "track_popularity"].tolist()
+                redosled = sorted(range(len(pogoci)), key=lambda i: popularnost[i], reverse=True)
+                pogoci = [pogoci[i] for i in redosled]
 
             ukupno = f"Pronadjeno pesama: {len(pogoci)}"
             if len(pogoci) > MAKS_REZULTATA:
                 ukupno += f" · prikazano prvih {MAKS_REZULTATA}"
             st.caption(ukupno)
 
-            for mesto, (track_id, pozicije, raspon) in enumerate(pogoci[:MAKS_REZULTATA], start=1):
+            for mesto, (track_id, pozicije, raspon, ocena) in enumerate(pogoci[:MAKS_REZULTATA], start=1):
                 red = katalog_po_id.loc[track_id]
-                prikaz.kartica(mesto, red)
+                prikaz.kartica(mesto, red, skor=ocena)
                 if pozicije is None:
                     pozicije = [isecak.prvo_pojavljivanje(red["lyrics"], trazeni)]
                 delovi = isecak.isecak(red["lyrics"], pozicije, raspon=raspon)

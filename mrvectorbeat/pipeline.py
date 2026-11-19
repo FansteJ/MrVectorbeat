@@ -126,7 +126,8 @@ def ucitaj_trie():
 
 def ucitaj_porodice():
     """Vraca recnik track_id -> porodica."""
-    pass
+    df = ucitaj_katalog()
+    return dict(zip(df["track_id"], df["porodica"]))
 
 
 def ucitaj_popularnost():
