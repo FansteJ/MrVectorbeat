@@ -57,3 +57,12 @@ def stemuj(reci):
 
 def obradi(tekst):
     return stemuj(ukloni_stop_reci(izdvoj_reci(mala_slova(tekst))))
+
+
+def obradi_sa_pozicijama(tekst):
+    """Kao obradi, ali uz svaki termin vraca i poziciju reci u originalnom tekstu.
+    Stop-reci se preskacu, ali se racunaju u poziciju."""
+    reci = izdvoj_reci(mala_slova(tekst))
+    pozicije = [i for i, r in enumerate(reci) if r not in STOP_RECI]
+    termini = stemuj([reci[i] for i in pozicije])
+    return list(zip(termini, pozicije))
