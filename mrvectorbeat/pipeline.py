@@ -196,7 +196,10 @@ def ucitaj_qrels(skup=None):
 
     skup - "poznata_stavka", "tema", ili None za oba.
     Vraca: tabelu (skup, upit, track_id, ocena, tipfeler)."""
-    pass
+    qrels = pd.read_csv(DATA / "qrels.csv")
+    if skup is not None:
+        qrels = qrels[qrels["skup"] == skup].reset_index(drop=True)
+    return qrels
 
 
 def napravi_evaluaciju():
