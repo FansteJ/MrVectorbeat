@@ -59,6 +59,14 @@ def obradi(tekst):
     return stemuj(ukloni_stop_reci(izdvoj_reci(mala_slova(tekst))))
 
 
+def mesta_reci(tekst):
+    """(pocetak, kraj) svake reci u originalnom tekstu, istim redom kao izdvoj_reci."""
+    if not isinstance(tekst, str):
+        return []
+    # translate menja znak za znak, pa se mesta u tekstu ne pomeraju
+    return [m.span() for m in _REC.finditer(tekst.translate(_APOSTROFI))]
+
+
 def obradi_sa_pozicijama(tekst):
     """Kao obradi, ali uz svaki termin vraca i poziciju reci u originalnom tekstu.
     Stop-reci se preskacu, ali se racunaju u poziciju."""
