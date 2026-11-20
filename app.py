@@ -91,9 +91,20 @@ def ucitaj_parametre_bm25():
     return pipeline.ucitaj_parametre_bm25()
 
 
-@st.cache_data
+# cache_resource: graf ima ~milion linkova, cache_data bi ga kopirao pri svakom kliku
+@st.cache_resource
 def ucitaj_graf():
     return pipeline.ucitaj_graf()
+
+
+@st.cache_resource
+def ucitaj_rangove():
+    return pipeline.ucitaj_rangove()
+
+
+@st.cache_resource
+def ucitaj_slicnost():
+    return pipeline.ucitaj_slicnost()
 
 
 @st.cache_resource
@@ -198,6 +209,9 @@ tfidf_model = ucitaj_tfidf()
 bm25_model = ucitaj_bm25()
 jezicki_model = ucitaj_jezicki()
 tokeni_po_pesmi = ucitaj_tokene_po_pesmi()
+graf = ucitaj_graf()
+rangovi = ucitaj_rangove()
+slicnost = ucitaj_slicnost()
 
 
 @st.cache_resource
@@ -761,6 +775,58 @@ elif strana == "Izvodjaci":
                "napravio crawler, naspram prostog brojanja linkova.")
 
     # Koristi: ucitaj_graf(), prikaz.kartica_izvodjaca()
+
+    @st.cache_resource
+    def podaci_izvodjaca():
+        ulaznih = [len(u) for u in graf.ulazni()]
+        cvorovi = list(graf.izvodjaci_cvora)
+        # vise imena iz kataloga moze da vodi na isti clanak
+        imena = {c: " / ".join(graf.izvodjaci_cvora[c]) for c in cvorovi}
+        return ulaznih, cvorovi, imena
+
+    ulaznih, cvorovi_izvodjaca, ime_cvora = podaci_izvodjaca()
+    rang = rangovi["rang"]
+
+    tab_uticaj, tab_slicni = st.tabs(["Najuticajniji izvodjaci", "Slicni izvodjaci"])
+
+    with tab_uticaj:
+        st.caption(f"PageRank nad celim grafom ({graf.broj_cvorova} stranica sa Vikipedije, "
+                   f"d = {rangovi['d']}), prikazani su samo izvodjaci iz kataloga. "
+                   f"Uticaj je PageRank puta broj stranica: 1 je prosecna stranica.")
+        k1, k2 = st.columns([3, 1])
+        poredak = k1.radio("Poredak po", ["Uticaj (PageRank)", "Broj stranica koje pokazuju na izvodjaca"],
+                           horizontal=True)
+        koliko = k2.number_input("Prikazi prvih", min_value=10, max_value=len(cvorovi_izvodjaca),
+                                 value=min(50, len(cvorovi_izvodjaca)), step=10)
+        if poredak == "Uticaj (PageRank)":
+            redosled = sorted(cvorovi_izvodjaca, key=lambda c: rang[c], reverse=True)
+        else:
+            redosled = sorted(cvorovi_izvodjaca, key=lambda c: ulaznih[c], reverse=True)
+        for mesto, cvor in enumerate(redosled[:koliko], start=1):
+            prikaz.kartica_izvodjaca(mesto, ime_cvora[cvor], rang[cvor] * graf.broj_cvorova, ulaznih[cvor])
+
+    with tab_slicni:
+        st.caption("Dva izvodjaca su slicna ako na njih pokazuju iste stranice. Stranica koja "
+                   "pokazuje na mnogo izvodjaca (npr. spisak dobitnika nagrade) vredi manje.")
+        po_imenu = sorted(cvorovi_izvodjaca, key=lambda c: ime_cvora[c].lower())
+        najuticajniji = max(cvorovi_izvodjaca, key=lambda c: rang[c])
+        izabran = st.selectbox("Izvodjac", po_imenu, index=po_imenu.index(najuticajniji),
+                               format_func=lambda c: ime_cvora[c])
+        slicni = slicnost.slicni(izabran)
+        if not slicni:
+            st.info("Na ovog izvodjaca ne pokazuje nijedna stranica koja pokazuje i na nekog "
+                    "drugog izvodjaca iz kataloga.")
+        for mesto, (cvor, vrednost, zajednicke) in enumerate(slicni, start=1):
+            ime = ime_cvora[cvor]
+            st.markdown(
+                f"<div class='kartica'><div class='mesto'>{mesto}</div>"
+                f"<div class='kvadrat' style='background:{prikaz.boja(ime)}'>{prikaz.inicijali(ime)}</div>"
+                f"<div><div class='naslov'>{html.escape(ime)}</div>"
+                f"<div class='podnaslov'><span class='cip'>slicnost {vrednost:.3f}</span>"
+                f"<span class='cip'>uticaj {rang[cvor] * graf.broj_cvorova:.2f}</span></div>"
+                f"<div class='podnaslov'>Oboje se pominju u: "
+                f"{html.escape(', '.join(graf.naslovi[s] for s in zajednicke))}</div>"
+                f"</div></div>", unsafe_allow_html=True)
 
 
 # --- Radio -------------------------------------------------------------
