@@ -2,12 +2,19 @@ import math
 from collections import Counter, defaultdict
 from operator import itemgetter
 
+import nltk
+from nltk.corpus import wordnet
+
 from mrvectorbeat import tekst
 
-# Izabrano na osnovu merenja (scripts.pripremi, jezicki_parametri.pkl): MRR je skoro
+# Izabrano na osnovu merenja (scripts/izmeri_jezicki.py): MRR je skoro
 # isti za mu od 1 do 100, a mu = 100 je najveci na tom delu koji jos pronalazi pesmu
 # i kad su reci zamenjene drugim (primer iz postavke).
 MU = 100.0
+
+# sinonim mora imati manju tezinu od otkucane reci (ona ima bar 1)
+TEZINA_SINONIMA = 0.4
+BROJ_SINONIMA = 3
 
 
 class JezickiModel:
@@ -70,3 +77,45 @@ def sadrzi_nedostaje(reci, termini_pesme):
     sadrzi = [rec for rec, termin in reci if termin in termini_pesme]
     nedostaje = [rec for rec, termin in reci if termin not in termini_pesme]
     return sadrzi, nedostaje
+
+
+def ucitaj_wordnet():
+    try:
+        wordnet.ensure_loaded()
+    except LookupError:
+        nltk.download("wordnet", quiet=True)
+        wordnet.ensure_loaded()
+
+
+def sinonimi(rec, p_c, izbegni, broj=BROJ_SINONIMA):
+    """Do `broj` sinonima reci iz WordNet-a, samo oni koji su jedna rec i postoje
+    u katalogu (p_c), a nisu u `izbegni` (termini koji su vec u upitu).
+    Vraca [(sinonim, termin), ...]."""
+    ucitaj_wordnet()
+    nadjeni = []
+    for znacenje in wordnet.synsets(rec):
+        for lema in znacenje.lemmas():
+            ime = lema.name().lower()
+            if "_" in ime:
+                continue
+            termini = tekst.obradi(ime)
+            if len(termini) != 1 or termini[0] not in p_c or termini[0] in izbegni:
+                continue
+            if termini[0] in [t for _, t in nadjeni]:
+                continue
+            nadjeni.append((ime, termini[0]))
+            if len(nadjeni) == broj:
+                return nadjeni
+    return nadjeni
+
+
+def prosiri_upit(reci, za_reci, p_c, tezina=TEZINA_SINONIMA):
+    """Upit sa sinonimima reci iz `za_reci`: otkucane reci imaju tezinu koliko puta
+    su otkucane, sinonimi `tezina`. Vraca (tezine, dodate reci)."""
+    tezine = Counter(termin for _, termin in reci)
+    dodate = []
+    for rec in za_reci:
+        for sinonim, termin in sinonimi(rec, p_c, tezine):
+            tezine[termin] = tezina
+            dodate.append(sinonim)
+    return tezine, dodate

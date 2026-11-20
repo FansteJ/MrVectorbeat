@@ -1,3 +1,6 @@
+from collections import Counter
+
+from mrvectorbeat import jezicki
 from mrvectorbeat.tfidf import najbolja_iz_porodice
 
 MODELI = ("TF-IDF", "Kosinus (lnc.ltc)", "BM25")
@@ -33,3 +36,24 @@ def rangiraj_jezicki(jezicki_model, indeks, tezine, porodica_po_id, mu=None):
     mu se zadaje samo pri izboru parametra; inace vazi onaj iz modela."""
     ocene = jezicki_model.oceni(indeks, tezine, mu)
     return najbolja_iz_porodice(ocene, porodica_po_id)
+
+
+def koja_je_pesma(jezicki_model, indeks, upit, termini_pesme, porodica_po_id):
+    """Pretraga "Koja je ovo pesma?". Ako prvoj pesmi nedostaju neke reci upita,
+    upit se prosiruje sinonimima tih reci iz WordNet-a i pretrazuje ponovo
+    (ako nema rezultata, sinonimima svih reci).
+    termini_pesme(id_pesme): skup termina te pesme.
+    Vraca (reci upita, rang-lista, dodate reci)."""
+    reci = jezicki.reci_upita(upit)
+    tezine = Counter(termin for _, termin in reci)
+    rangirano = rangiraj_jezicki(jezicki_model, indeks, tezine, porodica_po_id)
+    if rangirano:
+        _, nedostaje = jezicki.sadrzi_nedostaje(reci, termini_pesme(rangirano[0][0]))
+    else:
+        nedostaje = [rec for rec, _ in reci]
+    if not nedostaje:
+        return reci, rangirano, []
+    tezine, dodate = jezicki.prosiri_upit(reci, nedostaje, jezicki_model.p_c)
+    if dodate:
+        rangirano = rangiraj_jezicki(jezicki_model, indeks, tezine, porodica_po_id)
+    return reci, rangirano, dodate
