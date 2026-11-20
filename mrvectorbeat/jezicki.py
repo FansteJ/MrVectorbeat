@@ -4,7 +4,10 @@ from operator import itemgetter
 
 from mrvectorbeat import tekst
 
-MU = 1000.0     # privremeno; bira se merenjem
+# Izabrano na osnovu merenja (scripts.pripremi, jezicki_parametri.pkl): MRR je skoro
+# isti za mu od 1 do 100, a mu = 100 je najveci na tom delu koji jos pronalazi pesmu
+# i kad su reci zamenjene drugim (primer iz postavke).
+MU = 100.0
 
 
 class JezickiModel:
@@ -36,17 +39,16 @@ class JezickiModel:
         if not tezine:
             return []
 
-        # deo koji je isti za sve pesme: kao da pesma nema nijednu rec upita
+        # Ocena = "osnova" (kao da pesma nema nijednu rec upita, ista za sve pesme)
+        #       + "dodatak" za reci koje pesma sadrzi (sabira se kroz postings)
+        #       - deo koji zavisi samo od duzine pesme
         osnova = sum(w * math.log(mu * self.p_c[t]) for t, w in tezine.items())
-        ukupna_tezina = sum(tezine.values())
-
-        # dodatak za reci koje pesma sadrzi: log(tf + mu*p_C) - log(mu*p_C)
         dodatak = defaultdict(float)
         for termin, w in tezine.items():
             mu_pc = mu * self.p_c[termin]
             for id_pesme, pozicije in indeks.postings_za(termin):
                 dodatak[id_pesme] += w * math.log(1 + len(pozicije) / mu_pc)
-
+        ukupna_tezina = sum(tezine.values())
         ocene = [(id_pesme, osnova + d - ukupna_tezina * math.log(self.duzina[id_pesme] + mu))
                  for id_pesme, d in dodatak.items()]
         return sorted(ocene, key=itemgetter(1), reverse=True)

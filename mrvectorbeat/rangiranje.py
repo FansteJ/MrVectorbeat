@@ -25,3 +25,11 @@ def rangiraj(model, upit, indeks, tfidf_model, bm25_model, porodica_po_id, k1=No
     else:
         raise ValueError(f"Nepoznat model: {model}")
     return najbolja_iz_porodice(ocene, porodica_po_id)
+
+
+def rangiraj_jezicki(jezicki_model, indeks, tezine, porodica_po_id, mu=None):
+    """Rang-lista jezickog modela onakva kakvu korisnik vidi ("Koja je ovo pesma?"):
+    ocene za upit {termin: tezina}, pa po jedna verzija svake pesme.
+    mu se zadaje samo pri izboru parametra; inace vazi onaj iz modela."""
+    ocene = jezicki_model.oceni(indeks, tezine, mu)
+    return najbolja_iz_porodice(ocene, porodica_po_id)

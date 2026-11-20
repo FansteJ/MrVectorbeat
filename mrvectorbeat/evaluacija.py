@@ -1,4 +1,8 @@
 import math
+import random
+from collections import Counter
+
+from mrvectorbeat import tekst
 
 POZNATA = "poznata_stavka"
 TEMA = "tema"
@@ -103,6 +107,33 @@ def proseci_grupe(mere, upiti, ime_grupe):
     u_grupi = [upit for upit, podaci in upiti.items() if grupa(podaci) == ime_grupe]
     return {model: {ime: sum(po_upitu[u][ime] for u in u_grupi) / len(u_grupi) for ime in MERE}
             for model, po_upitu in mere.items()}
+
+
+def zamenjeni_upiti(upiti, termini_porodice, p_c, broj_zamena=2, seme=17):
+    """Upiti za jednu pesmu bez greske u kojima je broj_zamena reci zamenjeno drugim
+    recima iz kataloga, kao kad korisnik pogresno zapamti stih ("without hope" umesto
+    "hopeless"). Nova rec se bira po cestosti u katalogu (ljudi zamenjuju obicne reci),
+    i nije iz trazene pesme. Fiksno seme: uvek isti upiti.
+    termini_porodice: {porodica: skup termina}. Vraca {upit: Counter termina}."""
+    slucajno = random.Random(seme)
+    recnik = sorted(p_c)
+    verovatnoce = [p_c[t] for t in recnik]
+    rezultat = {}
+    for upit, podaci in upiti.items():
+        if grupa(podaci) != BEZ_GRESKE:
+            continue
+        termini = tekst.obradi(upit)
+        tacni = set()
+        for porodica in ocene_za_mere(podaci):
+            tacni |= termini_porodice[porodica]
+        for i in slucajno.sample(range(len(termini)), min(broj_zamena, len(termini))):
+            while True:
+                nova = slucajno.choices(recnik, verovatnoce)[0]
+                if nova not in tacni and nova not in termini:
+                    break
+            termini[i] = nova
+        rezultat[upit] = Counter(termini)
+    return rezultat
 
 
 def grupa(podaci_upita):
