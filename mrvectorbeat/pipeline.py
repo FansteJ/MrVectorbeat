@@ -29,6 +29,7 @@ from mrvectorbeat.indeks import PozicioniIndeks
 from mrvectorbeat.jezicki import MU as IZABRANO_MU
 from mrvectorbeat.jezicki import JezickiModel
 from mrvectorbeat.kgram import KgramIndeks
+from mrvectorbeat.slicnost import SlicnostIzvodjaca
 from mrvectorbeat.tfidf import TfIdfModel
 from mrvectorbeat.trie import PrefiksnoStablo
 
@@ -340,6 +341,18 @@ def napravi_rangove(d=pagerank.D):
 def ucitaj_rangove():
     """Cita gotovu rang-listu iz artifacts/."""
     return _ucitaj("rangovi.pkl")
+
+
+def napravi_slicnost():
+    """Gradi strukture za slicne izvodjace (stranice koje pokazuju na izvodjace i
+    njihove tezine) iz grafa i snima ih u artifacts/."""
+    s = SlicnostIzvodjaca(ucitaj_graf())
+    _snimi(s, "slicnost.pkl")
+    return s
+
+
+def ucitaj_slicnost():
+    return _ucitaj("slicnost.pkl")
 
 
 def napravi_kdrvo():

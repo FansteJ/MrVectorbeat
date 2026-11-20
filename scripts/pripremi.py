@@ -69,6 +69,10 @@ print(f"Graf: {g.broj_cvorova} stranica, {g.broj_grana} linkova, "
 rangovi = pipeline.napravi_rangove()
 print(f"PageRank: d={rangovi['d']}, {rangovi['iteracija']} iteracija")
 
+# Slicni izvodjaci
+slicnost = pipeline.napravi_slicnost()
+print(f"Slicnost: {len(slicnost.norma)} izvodjaca na koje pokazuje bar jedna stranica")
+
 # k-d stablo
 pipeline.napravi_kdrvo()
 
