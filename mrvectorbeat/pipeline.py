@@ -17,7 +17,6 @@
 
 import gc
 import pickle
-from collections import Counter
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -298,8 +297,9 @@ def ucitaj_evaluaciju():
     return _ucitaj("evaluacija.pkl")
 
 
-def napravi_jezicki(mu=1000.0):
-    """Gradi jezicki model (p_C svake reci, duzine pesama) i snima ga u artifacts/."""
+def napravi_jezicki(mu=IZABRANO_MU):
+    """Gradi jezicki model (p_C svake reci, duzine pesama) i snima ga u artifacts/.
+    mu je izabran merenjem (scripts/izmeri_jezicki.py)."""
     model = JezickiModel(ucitaj_indeks(), mu)
     _snimi(model, "jezicki.pkl")
     return model
@@ -308,64 +308,6 @@ def napravi_jezicki(mu=1000.0):
 def ucitaj_jezicki():
     """Cita gotov jezicki model iz artifacts/."""
     return _ucitaj("jezicki.pkl")
-
-
-MU_VREDNOSTI = [1, 5, 10, 50, 100, 250, 500, 1000, 2000, 5000]
-PRIMER_UPIT = "found love in a place without hope"       # primer iz postavke
-PRIMER_PORODICA = "rihanna|we found love"
-
-
-def napravi_parametre_jezickog():
-    """MRR jezickog modela (Dirichlet) za vise vrednosti mu, nad: upitima za jednu
-    pesmu bez greske, sa greskom u kucanju i sa dve zamenjene reci; plus mesto pesme
-    iz primera u postavci. Model se snima sa izabranim mu (jezicki.MU, obrazlozen na
-    osnovu ovih merenja).
-    Vraca {"mu": [...], "bez_greske": [...], "sa_greskom": [...], "zamenjene": [...],
-    "primer_mesto": [...], "izabrano": mu}."""
-    indeks = ucitaj_indeks()
-    model = ucitaj_jezicki()
-    porodice = ucitaj_porodice()
-    porodica_po_id = rangiranje.porodice_po_id(indeks, porodice)
-    upiti = evaluacija.ocene_po_porodicama(ucitaj_qrels(), porodice.get)
-
-    termini_porodice = {}
-    for track_id, termini in ucitaj_tokene().items():
-        termini_porodice.setdefault(porodice[track_id], set()).update(termini)
-    skupovi = {
-        "bez_greske": {u: Counter(tekst.obradi(u)) for u, p in upiti.items()
-                       if evaluacija.grupa(p) == evaluacija.BEZ_GRESKE},
-        "sa_greskom": {u: Counter(tekst.obradi(u)) for u, p in upiti.items()
-                       if evaluacija.grupa(p) == evaluacija.SA_GRESKOM},
-        "zamenjene": evaluacija.zamenjeni_upiti(upiti, termini_porodice, model.p_c),
-    }
-    primer = Counter(tekst.obradi(PRIMER_UPIT))
-
-    rezultat = {"mu": MU_VREDNOSTI, "primer_mesto": []}
-    with _bez_sakupljaca_smeca():
-        for mu in MU_VREDNOSTI:
-            for ime, upiti_skupa in skupovi.items():
-                zbir_rr = 0.0
-                for upit, tezine in upiti_skupa.items():
-                    rangirano = rangiranje.rangiraj_jezicki(model, indeks, tezine, porodica_po_id, mu)
-                    porodice_redom = (porodica_po_id[id_pesme] for id_pesme, _ in rangirano)
-                    zbir_rr += evaluacija.reciprocni_rang(porodice_redom,
-                                                          evaluacija.ocene_za_mere(upiti[upit]))
-                rezultat.setdefault(ime, []).append(zbir_rr / len(upiti_skupa))
-            rangirano = rangiranje.rangiraj_jezicki(model, indeks, primer, porodica_po_id, mu)
-            mesto = next(i for i, (id_pesme, _) in enumerate(rangirano, start=1)
-                         if porodica_po_id[id_pesme] == PRIMER_PORODICA)
-            rezultat["primer_mesto"].append(mesto)
-
-    model.mu = IZABRANO_MU
-    _snimi(model, "jezicki.pkl")
-    rezultat["izabrano"] = IZABRANO_MU
-    _snimi(rezultat, "jezicki_parametri.pkl")
-    return rezultat
-
-
-def ucitaj_parametre_jezickog():
-    """Cita MRR za sve vrednosti mu i izabranu iz artifacts/."""
-    return _ucitaj("jezicki_parametri.pkl")
 
 
 def ucitaj_graf():
