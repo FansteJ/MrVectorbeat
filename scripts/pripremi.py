@@ -59,6 +59,11 @@ jezicki = pipeline.napravi_jezicki()
 print(f"Jezicki model: p_C za {len(jezicki.p_c)} termina, ukupno {jezicki.ukupno_reci} reci, "
       f"Dirichlet mu={jezicki.mu:g}")
 
+# Graf stranica sa Vikipedije (od rezultata scripts.crawl)
+g = pipeline.napravi_graf()
+print(f"Graf: {g.broj_cvorova} stranica, {g.broj_grana} linkova, "
+      f"{len(g.izvodjaci_cvora)} stranica izvodjaca iz kataloga ({len(g.cvor_izvodjaca)} imena)")
+
 # PageRank nad grafom izvodjaca
 # Vas crawler pravi graf izvodjaca - pokrenite ga pre ovog koraka.
 pipeline.napravi_rangove()

@@ -16,13 +16,14 @@
 # Tako aplikacija nikad ne gradi nista iznova pri svakom kliku.
 
 import gc
+import json
 import pickle
 from contextlib import contextmanager
 from pathlib import Path
 
 import pandas as pd
 
-from mrvectorbeat import evaluacija, katalog, rangiranje, tekst
+from mrvectorbeat import crawler, evaluacija, graf, katalog, rangiranje, tekst
 from mrvectorbeat.bm25 import BM25Model
 from mrvectorbeat.indeks import PozicioniIndeks
 from mrvectorbeat.jezicki import MU as IZABRANO_MU
@@ -34,6 +35,7 @@ from mrvectorbeat.trie import PrefiksnoStablo
 KOREN = Path(__file__).resolve().parent.parent
 DATA = KOREN / "data"
 ARTIFACTS = KOREN / "artifacts"
+WIKI = DATA / "wiki"                # stranice koje je preuzeo crawler
 
 
 def _snimi(objekat, ime_fajla):
@@ -310,9 +312,19 @@ def ucitaj_jezicki():
     return _ucitaj("jezicki.pkl")
 
 
+def napravi_graf():
+    """Gradi graf stranica od rezultata crawlera (scripts/crawl.py, data/wiki/) i snima
+    ga u artifacts/."""
+    with open(WIKI / "obilazak.json", encoding="utf-8") as f:
+        obilazak = json.load(f)
+    g = graf.napravi_graf(crawler.Preuzimac(WIKI), obilazak)
+    _snimi(g, "graf.pkl")
+    return g
+
+
 def ucitaj_graf():
     """Cita graf izvodjaca koji je napravio vas crawler."""
-    pass
+    return _ucitaj("graf.pkl")
 
 
 def napravi_rangove():

@@ -114,19 +114,27 @@ class Preuzimac:
     def u_kesu(self, url):
         return self._putanja(url).exists()
 
+    def iz_kesa(self, url):
+        """Vec preuzeta stranica ili None, bez slanja zahteva."""
+        putanja = self._putanja(url)
+        if not putanja.exists():
+            return None
+        with gzip.open(putanja, "rt", encoding="utf-8") as f:
+            return json.load(f)
+
     def preuzmi(self, url):
         """Obradjena stranica (recnik iz obradi_stranicu, plus url i status) ili None
         ako robots.txt zabranjuje adresu. Iz kesa ako je vec preuzeta."""
-        putanja = self._putanja(url)
-        if putanja.exists():
-            with gzip.open(putanja, "rt", encoding="utf-8") as f:
-                return json.load(f)
+        stranica = self.iz_kesa(url)
+        if stranica is not None:
+            return stranica
 
         if self.robots is None:
             self._ucitaj_robots()
         if not self.robots.can_fetch(self.user_agent, url):
             return None
 
+        putanja = self._putanja(url)
         odgovor = self._get(url)
         if odgovor.status_code == 200:
             stranica = obradi_stranicu(odgovor.text)
