@@ -22,7 +22,7 @@ import pandas as pd
 import streamlit as st
 from st_keyup import st_keyup
 
-from mrvectorbeat import evaluacija, isecak, jezicki, pipeline, prikaz, rangiranje, tekst, trie
+from mrvectorbeat import evaluacija, isecak, jezicki, pipeline, plejlista, prikaz, rangiranje, tekst, trie
 
 # OVDE IDU importi vasih modula, npr.:
 #   from mrvectorbeat import upit, indeks, tfidf, bm25, ...
@@ -508,20 +508,93 @@ elif strana == "Jezicki model":
 
     katalog_po_id = ucitaj_katalog_po_id()
     MAKS_REZULTATA = 20
+    # {id pesme: True (dopada se) ili False}; ostaju i kad se promeni upit
+    st.session_state.setdefault("oznake", {})
+    oznake = st.session_state.oznake
 
     def termini_pesme(id_pesme):
-        return set(tokeni_po_pesmi[ind.track_ids[id_pesme]])
+        return tokeni_po_pesmi[ind.track_ids[id_pesme]]
+
+    def skup_termina(id_pesme):
+        return set(termini_pesme(id_pesme))
+
+    def oznaci(id_pesme, dopada):
+        # ponovni klik na istu oznaku je uklanja
+        if oznake.get(id_pesme) == dopada:
+            del oznake[id_pesme]
+        else:
+            oznake[id_pesme] = dopada
+
+    def ukloni_oznaku(id_pesme):
+        del oznake[id_pesme]
+
+    def ukloni_sve_oznake():
+        oznake.clear()
+
+    def prikazi_plejlistu():
+        st.session_state.plejlista = True
+
+    def dugmad_oznaka(id_pesme, kolona_da, kolona_ne):
+        oznaka = oznake.get(id_pesme)
+        kolona_da.button("Dopada mi se", key=f"da_{id_pesme}", on_click=oznaci, args=(id_pesme, True),
+                         type="primary" if oznaka is True else "secondary", width="stretch")
+        kolona_ne.button("Ne dopada mi se", key=f"ne_{id_pesme}", on_click=oznaci, args=(id_pesme, False),
+                         type="primary" if oznaka is False else "secondary", width="stretch")
 
     st.subheader("Koja je ovo pesma?")
     upit = st.text_input("Deo stiha kojeg se secate", placeholder="npr. found love in a place without hope")
+
+    if oznake:
+        # stalan naslov: sa promenjenim naslovom Streamlit ga posle "Ukloni" zatvori
+        with st.expander("Oznacene pesme"):
+            broj_dopada = sum(1 for dopada in oznake.values() if dopada)
+            st.caption(f"Dopada mi se: {broj_dopada} · Ne dopada mi se: {len(oznake) - broj_dopada}")
+            for id_pesme, dopada in list(oznake.items()):
+                red = katalog_po_id.loc[ind.track_ids[id_pesme]]
+                k1, k2 = st.columns([6, 1])
+                k1.markdown(f"{'Dopada mi se' if dopada else 'Ne dopada mi se'}: "
+                            f"**{html.escape(red['track_name'])}** · {html.escape(red['track_artist'])}")
+                k2.button("Ukloni", key=f"ukloni_{id_pesme}", on_click=ukloni_oznaku, args=(id_pesme,))
+            st.button("Ukloni sve oznake", on_click=ukloni_sve_oznake)
+
     if upit:
         reci, rangirano, dodate = rangiranje.koja_je_pesma(jezicki_model, ind, upit,
-                                                          termini_pesme, porodica_po_id)
+                                                          skup_termina, porodica_po_id)
         if not reci:
             st.info("Upit posle obrade nema nijednu rec (samo stop-reci), pa nema rezultata.")
         elif not rangirano:
             st.info("Nijedna pesma ne sadrzi nijednu rec upita.")
         else:
+            prikazani = [id_pesme for id_pesme, _ in rangirano[:MAKS_REZULTATA]]
+
+            st.button("Napravi plejlistu", type="primary", on_click=prikazi_plejlistu)
+            # posle klika plejlista se pravi pri svakom osvezavanju strane, pa svaka
+            # promena oznaka odmah menja i plejlistu i reci
+            if st.session_state.get("plejlista"):
+                reci_plejliste, pesme = plejlista.napravi_plejlistu(
+                    tfidf_model, ind, [termin for _, termin in reci], prikazani, oznake,
+                    termini_pesme, porodica_po_id)
+                dopada = [i for i, ocena in oznake.items() if ocena]
+                if not oznake:
+                    dopada = prikazani[:plejlista.PRETPOSTAVLJENO_DOPADA]
+                izvori = [upit] + [katalog_po_id.loc[ind.track_ids[i], "lyrics"] for i in dopada]
+                oblici = isecak.oblici_termina(izvori, {termin for termin, _ in reci_plejliste})
+
+                with st.container(border=True):
+                    st.markdown("**Plejlista po vasem ukusu**")
+                    if not oznake:
+                        st.caption(f"Niste oznacili nijednu pesmu, pa je pretpostavljeno da vam se "
+                                   f"dopada prvih {plejlista.PRETPOSTAVLJENO_DOPADA} rezultata.")
+                    elif not dopada:
+                        st.caption("Nijedna pesma nije oznacena sa \"Dopada mi se\", "
+                                   "pa se plejlista pravi samo od upita.")
+                    st.markdown(f"Napravljena na osnovu reci: "
+                                f"{html.escape(', '.join(oblici[t] for t, _ in reci_plejliste))}")
+                    if not pesme:
+                        st.info("Nema novih pesama za plejlistu.")
+                    for mesto, (id_pesme, slicnost) in enumerate(pesme, start=1):
+                        prikaz.kartica(mesto, katalog_po_id.loc[ind.track_ids[id_pesme]], skor=slicnost)
+
             if dodate:
                 st.info(f"Ukljuceni su i rezultati za: {', '.join(dodate)}")
             ukupno = f"Pronadjeno pesama: {len(rangirano)}"
@@ -529,9 +602,13 @@ elif strana == "Jezicki model":
                 ukupno += f" · prikazano prvih {MAKS_REZULTATA}"
             st.caption(ukupno)
 
-            for mesto, (id_pesme, ocena) in enumerate(rangirano[:MAKS_REZULTATA], start=1):
-                prikaz.kartica(mesto, katalog_po_id.loc[ind.track_ids[id_pesme]], skor=ocena)
-                sadrzi, nedostaje = jezicki.sadrzi_nedostaje(reci, termini_pesme(id_pesme))
+            for mesto, id_pesme in enumerate(prikazani, start=1):
+                k1, k2, k3 = st.columns([6, 1, 1], vertical_alignment="center")
+                with k1:
+                    prikaz.kartica(mesto, katalog_po_id.loc[ind.track_ids[id_pesme]],
+                                   skor=rangirano[mesto - 1][1])
+                dugmad_oznaka(id_pesme, k2, k3)
+                sadrzi, nedostaje = jezicki.sadrzi_nedostaje(reci, skup_termina(id_pesme))
                 delovi = []
                 if sadrzi:
                     delovi.append(f"Sadrzi: {html.escape(', '.join(sadrzi))}")
