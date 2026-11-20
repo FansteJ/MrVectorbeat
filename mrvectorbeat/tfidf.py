@@ -77,7 +77,7 @@ class TfIdfModel:
         """Kosinusna slicnost lnc.ltc izmedju upita i pesama koje sadrze bar jednu rec upita.
         Vraca [(id pesme, slicnost), ...] od najvece ka najmanjoj."""
         tezine, norma = self.vektor_upita(tekst.obradi(upit))
-        return self._kosinus_za_vektor(indeks, tezine, norma)
+        return self.kosinus_za_vektor(indeks, tezine, norma)
 
     def slicne(self, indeks, id_pesme, termini, porodica_po_id, k=10):
         """Pesme ciji je tekst najslicniji pesmi id_pesme (kosinus lnc.ltc, pesma je upit).
@@ -85,7 +85,7 @@ class TfIdfModel:
         Vraca najvise k parova (id pesme, slicnost)."""
         tezine, _ = self.vektor_upita(termini)
         # norma pesme kao upita je izracunata unapred, pri gradnji modela
-        rangirano = self._kosinus_za_vektor(indeks, tezine, self.duzina_ltc[id_pesme])
+        rangirano = self.kosinus_za_vektor(indeks, tezine, self.duzina_ltc[id_pesme])
         moja_porodica = porodica_po_id[id_pesme]
         bez_verzija = [(i, s) for i, s in rangirano if porodica_po_id[i] != moja_porodica]
         return najbolja_iz_porodice(bez_verzija, porodica_po_id)[:k]
@@ -109,7 +109,9 @@ class TfIdfModel:
         doprinosi.sort(key=lambda x: x[3], reverse=True)
         return kosinus, [(t, ba, bb, d / kosinus) for t, ba, bb, d in doprinosi[:k]]
 
-    def _kosinus_za_vektor(self, indeks, tezine_upita, norma_upita):
+    def kosinus_za_vektor(self, indeks, tezine_upita, norma_upita):
+        """Kosinus izmedju vektora upita {termin: tezina} i pesama (lnc) koje sadrze
+        bar jedan njegov termin. Vraca [(id pesme, slicnost), ...] od najvece ka najmanjoj."""
         if norma_upita == 0:
             return []
         # skalarni proizvod samo po zajednickim terminima, sabran termin po termin
