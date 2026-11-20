@@ -55,7 +55,8 @@ rang_liste = pipeline.napravi_evaluaciju()
 print(f"Evaluacija: rang-liste za {len(next(iter(rang_liste.values())))} upita kroz {len(rang_liste)} modela")
 
 # Jezicki model
-pipeline.napravi_jezicki()
+jezicki = pipeline.napravi_jezicki()
+print(f"Jezicki model: p_C za {len(jezicki.p_c)} termina, ukupno {jezicki.ukupno_reci} reci, mu={jezicki.mu:g}")
 
 # PageRank nad grafom izvodjaca
 # Vas crawler pravi graf izvodjaca - pokrenite ga pre ovog koraka.

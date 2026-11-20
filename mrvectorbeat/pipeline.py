@@ -25,6 +25,7 @@ import pandas as pd
 from mrvectorbeat import evaluacija, katalog, rangiranje, tekst
 from mrvectorbeat.bm25 import BM25Model
 from mrvectorbeat.indeks import PozicioniIndeks
+from mrvectorbeat.jezicki import JezickiModel
 from mrvectorbeat.kgram import KgramIndeks
 from mrvectorbeat.tfidf import TfIdfModel
 from mrvectorbeat.trie import PrefiksnoStablo
@@ -296,13 +297,15 @@ def ucitaj_evaluaciju():
 
 
 def napravi_jezicki(mu=1000.0):
-    """Gradi jezicki model i snima ga u artifacts/."""
-    pass
+    """Gradi jezicki model (p_C svake reci, duzine pesama) i snima ga u artifacts/."""
+    model = JezickiModel(ucitaj_indeks(), mu)
+    _snimi(model, "jezicki.pkl")
+    return model
 
 
 def ucitaj_jezicki():
     """Cita gotov jezicki model iz artifacts/."""
-    pass
+    return _ucitaj("jezicki.pkl")
 
 
 def ucitaj_graf():
