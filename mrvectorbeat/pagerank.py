@@ -1,6 +1,7 @@
 import numpy as np
 
-# izabrano merenjem (scripts/izmeri_pagerank.py)
+# vrednost iz rada Brin & Page; merenje (scripts/izmeri_pagerank.py) pokazuje
+# da d od 0.6 do 0.99 malo menja rang, a vece d sporije konvergira
 D = 0.85
 EPS = 1e-8
 
