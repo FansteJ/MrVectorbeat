@@ -95,20 +95,29 @@ class Preuzimac:
         self.poslednji_zahtev = time.monotonic()
 
     def _get(self, url):
-        for pokusaj in range(3):
+        """Odgovor servera ili None ako ni posle 5 pokusaja nije uspelo."""
+        for pokusaj in range(5):
             self._sacekaj()
             self.poslato_zahteva += 1
-            odgovor = self.sesija.get(url, timeout=30)
+            try:
+                odgovor = self.sesija.get(url, timeout=30)
+            except requests.RequestException:
+                # prekinuta veza, istekao timeout...: sacekaj pa probaj ponovo
+                time.sleep(10 * (pokusaj + 1))
+                continue
             # 429: server trazi da usporimo; 5xx: privremena greska
             if odgovor.status_code == 429 or odgovor.status_code >= 500:
                 time.sleep(int(odgovor.headers.get("Retry-After", 10 * (pokusaj + 1))))
                 continue
             return odgovor
-        return odgovor
+        return None
 
     def _ucitaj_robots(self):
         self.robots = RobotFileParser()
-        self.robots.parse(self._get("https://en.wikipedia.org/robots.txt").text.splitlines())
+        odgovor = self._get("https://en.wikipedia.org/robots.txt")
+        if odgovor is None:
+            raise RuntimeError("robots.txt nije dostupan, obilazak ne sme da pocne")
+        self.robots.parse(odgovor.text.splitlines())
         self.pauza = max(self.pauza, self.robots.crawl_delay(self.user_agent) or 0)
 
     def u_kesu(self, url):
@@ -124,7 +133,7 @@ class Preuzimac:
 
     def preuzmi(self, url):
         """Obradjena stranica (recnik iz obradi_stranicu, plus url i status) ili None
-        ako robots.txt zabranjuje adresu. Iz kesa ako je vec preuzeta."""
+        ako robots.txt zabranjuje adresu ili server ne odgovara. Iz kesa ako je vec preuzeta."""
         stranica = self.iz_kesa(url)
         if stranica is not None:
             return stranica
@@ -136,6 +145,8 @@ class Preuzimac:
 
         putanja = self._putanja(url)
         odgovor = self._get(url)
+        if odgovor is None:
+            return None             # nije sacuvano, pa se pokusava pri sledecem pokretanju
         if odgovor.status_code == 200:
             stranica = obradi_stranicu(odgovor.text)
         else:
