@@ -23,7 +23,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from mrvectorbeat import crawler, evaluacija, graf, katalog, rangiranje, tekst
+from mrvectorbeat import crawler, evaluacija, graf, katalog, pagerank, rangiranje, tekst
 from mrvectorbeat.bm25 import BM25Model
 from mrvectorbeat.indeks import PozicioniIndeks
 from mrvectorbeat.jezicki import MU as IZABRANO_MU
@@ -327,15 +327,19 @@ def ucitaj_graf():
     return _ucitaj("graf.pkl")
 
 
-def napravi_rangove():
+def napravi_rangove(d=pagerank.D):
     """Racuna PageRank nad grafom izvodjaca i snima rang-listu u
-    artifacts/."""
-    pass
+    artifacts/. d je izabran merenjem (scripts/izmeri_pagerank.py)."""
+    g = ucitaj_graf()
+    rang, promene = pagerank.pagerank(g.izlazni, d)
+    rangovi = {"d": d, "rang": rang, "iteracija": len(promene)}
+    _snimi(rangovi, "rangovi.pkl")
+    return rangovi
 
 
 def ucitaj_rangove():
     """Cita gotovu rang-listu iz artifacts/."""
-    pass
+    return _ucitaj("rangovi.pkl")
 
 
 def napravi_kdrvo():

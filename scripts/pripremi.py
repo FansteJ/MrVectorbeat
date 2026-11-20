@@ -66,7 +66,8 @@ print(f"Graf: {g.broj_cvorova} stranica, {g.broj_grana} linkova, "
 
 # PageRank nad grafom izvodjaca
 # Vas crawler pravi graf izvodjaca - pokrenite ga pre ovog koraka.
-pipeline.napravi_rangove()
+rangovi = pipeline.napravi_rangove()
+print(f"PageRank: d={rangovi['d']}, {rangovi['iteracija']} iteracija")
 
 # k-d stablo
 pipeline.napravi_kdrvo()
