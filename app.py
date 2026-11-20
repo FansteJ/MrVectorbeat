@@ -545,8 +545,9 @@ elif strana == "Jezicki model":
     def ukloni_sve_oznake():
         oznake.clear()
 
-    def prikazi_plejlistu():
-        st.session_state.plejlista = True
+    def prikazi_plejlistu(za_upit):
+        # pamti se upit, pa novi upit ne prikazuje plejlistu dok se ne klikne ponovo
+        st.session_state.plejlista = za_upit
 
     def dugmad_oznaka(id_pesme, kolona_da, kolona_ne):
         oznaka = oznake.get(id_pesme)
@@ -581,10 +582,10 @@ elif strana == "Jezicki model":
         else:
             prikazani = [id_pesme for id_pesme, _ in rangirano[:MAKS_REZULTATA]]
 
-            st.button("Napravi plejlistu", type="primary", on_click=prikazi_plejlistu)
+            st.button("Napravi plejlistu", type="primary", on_click=prikazi_plejlistu, args=(upit,))
             # posle klika plejlista se pravi pri svakom osvezavanju strane, pa svaka
             # promena oznaka odmah menja i plejlistu i reci
-            if st.session_state.get("plejlista"):
+            if st.session_state.get("plejlista") == upit:
                 reci_plejliste, pesme = plejlista.napravi_plejlistu(
                     tfidf_model, ind, [termin for _, termin in reci], prikazani, oznake,
                     termini_pesme, porodica_po_id)

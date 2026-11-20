@@ -241,7 +241,8 @@ def nadji_clanak_izvodjaca(preuzimac, ime, pesme=()):
     najbolja, najvise = None, -1
     for kandidat in kandidati:
         stranica = preuzimac.preuzmi(kandidat)
-        if stranica and stranica["status"] == 200 and not je_viseznacna(stranica)                 and je_muzicka(stranica) and not je_o_delu(stranica):
+        if (stranica and stranica["status"] == 200 and not je_viseznacna(stranica)
+                and je_muzicka(stranica) and not je_o_delu(stranica)):
             pomenutih = broj_pomenutih_pesama(stranica, pesme)
             if pomenutih > 0:
                 return stranica
@@ -286,7 +287,7 @@ def obidji(preuzimac, izvodjaci, dodatnih_stranica, ispis=print):
         if stranica is not None:
             clanci[ime] = stranica["kanonski"] or stranica["url"]
             zapamti(stranica)
-        if i % 100 == 0 or preuzimac.poslato_zahteva > pre and i % 25 == 0:
+        if i % 100 == 0 or (preuzimac.poslato_zahteva > pre and i % 25 == 0):
             ispis(f"izvodjaci: {i}/{len(izvodjaci)}, nadjeno {len(clanci)}, "
                   f"zahteva {preuzimac.poslato_zahteva}")
 
@@ -297,7 +298,10 @@ def obidji(preuzimac, izvodjaci, dodatnih_stranica, ispis=print):
             continue
         kanonske.add(adresa)
         stranica = preuzimac.preuzmi(adresa)
-        if stranica is None or stranica["status"] != 200 or stranica["kanonski"] in kanonske                 and stranica["kanonski"] != adresa:
+        if stranica is None or stranica["status"] != 200:
+            continue
+        # preusmerenje na clanak koji je vec obidjen
+        if stranica["kanonski"] != adresa and stranica["kanonski"] in kanonske:
             continue
         zapamti(stranica)
         dodato += 1
