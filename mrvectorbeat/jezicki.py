@@ -12,8 +12,9 @@ from mrvectorbeat import tekst
 # i kad su reci zamenjene drugim (primer iz postavke).
 MU = 100.0
 
-# sinonim mora imati manju tezinu od otkucane reci (ona ima bar 1)
-TEZINA_SINONIMA = 0.4
+# sinonim mora imati manju tezinu od otkucane reci (ona ima bar 1);
+# 0.2 izabrano merenjem (scripts/izmeri_jezicki.py)
+TEZINA_SINONIMA = 0.2
 BROJ_SINONIMA = 3
 
 

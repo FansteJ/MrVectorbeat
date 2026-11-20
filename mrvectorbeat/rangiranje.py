@@ -38,11 +38,13 @@ def rangiraj_jezicki(jezicki_model, indeks, tezine, porodica_po_id, mu=None):
     return najbolja_iz_porodice(ocene, porodica_po_id)
 
 
-def koja_je_pesma(jezicki_model, indeks, upit, termini_pesme, porodica_po_id):
+def koja_je_pesma(jezicki_model, indeks, upit, termini_pesme, porodica_po_id,
+                  tezina_sinonima=jezicki.TEZINA_SINONIMA):
     """Pretraga "Koja je ovo pesma?". Ako prvoj pesmi nedostaju neke reci upita,
     upit se prosiruje sinonimima tih reci iz WordNet-a i pretrazuje ponovo
     (ako nema rezultata, sinonimima svih reci).
-    termini_pesme(id_pesme): skup termina te pesme.
+    termini_pesme(id_pesme): skup termina te pesme. tezina_sinonima se zadaje
+    samo pri merenju.
     Vraca (reci upita, rang-lista, dodate reci)."""
     reci = jezicki.reci_upita(upit)
     tezine = Counter(termin for _, termin in reci)
@@ -53,7 +55,7 @@ def koja_je_pesma(jezicki_model, indeks, upit, termini_pesme, porodica_po_id):
         nedostaje = [rec for rec, _ in reci]
     if not nedostaje:
         return reci, rangirano, []
-    tezine, dodate = jezicki.prosiri_upit(reci, nedostaje, jezicki_model.p_c)
+    tezine, dodate = jezicki.prosiri_upit(reci, nedostaje, jezicki_model.p_c, tezina_sinonima)
     if dodate:
         rangirano = rangiraj_jezicki(jezicki_model, indeks, tezine, porodica_po_id)
     return reci, rangirano, dodate
