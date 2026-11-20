@@ -22,7 +22,7 @@ import pandas as pd
 import streamlit as st
 from st_keyup import st_keyup
 
-from mrvectorbeat import evaluacija, isecak, pipeline, prikaz, rangiranje, tekst, trie
+from mrvectorbeat import evaluacija, isecak, jezicki, pipeline, prikaz, rangiranje, tekst, trie
 
 # OVDE IDU importi vasih modula, npr.:
 #   from mrvectorbeat import upit, indeks, tfidf, bm25, ...
@@ -163,13 +163,15 @@ def ucitaj_katalog_po_id():
 
 
 @st.cache_resource
-def ucitaj_jezicki(mu):
-    pass
+def ucitaj_jezicki():
+    jezicki.ucitaj_wordnet()
+    return pipeline.ucitaj_jezicki()
 
 
-@st.cache_data
+# cache_resource: tokeni svih pesama su veliki, cache_data bi ih kopirao pri svakom kliku
+@st.cache_resource
 def ucitaj_tokene_po_pesmi():
-    pass
+    return pipeline.ucitaj_tokene()
 
 
 @st.cache_data
@@ -194,6 +196,8 @@ ucitaj_sbert()
 zagrej_ollama()
 tfidf_model = ucitaj_tfidf()
 bm25_model = ucitaj_bm25()
+jezicki_model = ucitaj_jezicki()
+tokeni_po_pesmi = ucitaj_tokene_po_pesmi()
 
 
 @st.cache_resource
@@ -501,6 +505,41 @@ elif strana == "Jezicki model":
 
     # Koristi: ucitaj_jezicki(mu), ucitaj_bm25(), ucitaj_tokene_po_pesmi(),
     #          ucitaj_qrels(), ind, df, prikaz.kartica()
+
+    katalog_po_id = ucitaj_katalog_po_id()
+    MAKS_REZULTATA = 20
+
+    def termini_pesme(id_pesme):
+        return set(tokeni_po_pesmi[ind.track_ids[id_pesme]])
+
+    st.subheader("Koja je ovo pesma?")
+    upit = st.text_input("Deo stiha kojeg se secate", placeholder="npr. found love in a place without hope")
+    if upit:
+        reci, rangirano, dodate = rangiranje.koja_je_pesma(jezicki_model, ind, upit,
+                                                          termini_pesme, porodica_po_id)
+        if not reci:
+            st.info("Upit posle obrade nema nijednu rec (samo stop-reci), pa nema rezultata.")
+        elif not rangirano:
+            st.info("Nijedna pesma ne sadrzi nijednu rec upita.")
+        else:
+            if dodate:
+                st.info(f"Ukljuceni su i rezultati za: {', '.join(dodate)}")
+            ukupno = f"Pronadjeno pesama: {len(rangirano)}"
+            if len(rangirano) > MAKS_REZULTATA:
+                ukupno += f" · prikazano prvih {MAKS_REZULTATA}"
+            st.caption(ukupno)
+
+            for mesto, (id_pesme, ocena) in enumerate(rangirano[:MAKS_REZULTATA], start=1):
+                prikaz.kartica(mesto, katalog_po_id.loc[ind.track_ids[id_pesme]], skor=ocena)
+                sadrzi, nedostaje = jezicki.sadrzi_nedostaje(reci, termini_pesme(id_pesme))
+                delovi = []
+                if sadrzi:
+                    delovi.append(f"Sadrzi: {html.escape(', '.join(sadrzi))}")
+                if nedostaje:
+                    delovi.append(f"<span style='color:#e0707a'>Nedostaje: "
+                                  f"{html.escape(', '.join(nedostaje))}</span>")
+                st.markdown(f"<div style='color:#a8a8b3; font-size:14px; margin:-4px 0 16px 50px'>"
+                            f"{' · '.join(delovi)}</div>", unsafe_allow_html=True)
 
 
 # --- Evaluacija --------------------------------------------------------
