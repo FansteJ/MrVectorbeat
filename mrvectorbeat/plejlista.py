@@ -48,18 +48,25 @@ def rocchio(upit, dopada, ne_dopada, alfa=ALFA, beta=BETA, gama=GAMA):
     return {t: w for t, w in novi.items() if w > 0}
 
 
+def pesme_koje_se_dopadaju(rezultati, oznake):
+    """Pesme oznacene sa "dopada mi se". Ako takvih nema, pretpostavlja se da se
+    dopadaju prvi rezultati, bez onih koje je korisnik oznacio da mu se ne dopadaju."""
+    dopada = [i for i, ocena in oznake.items() if ocena]
+    if not dopada:
+        dopada = [i for i in rezultati if i not in oznake][:PRETPOSTAVLJENO_DOPADA]
+    return dopada
+
+
 def napravi_plejlistu(tfidf_model, indeks, termini_upita, rezultati, oznake,
                       termini_pesme, porodica_po_id, alfa=ALFA):
     """Plejlista od pesama slicnih onima koje se dopadaju.
     rezultati: id-jevi pesama prikazanih u pretrazi. oznake: {id pesme: True (dopada se)
-    ili False}. Ako nista nije oznaceno, pretpostavlja se da se dopadaju prvi rezultati.
+    ili False}. Ako se nijedna ne dopada, pretpostavlja se da se dopadaju prvi rezultati.
     termini_pesme(id_pesme): obradjeni stihovi pesme (lista termina).
     alfa se zadaje samo pri merenju.
     Vraca (reci [(termin, tezina), ...], plejlista [(id pesme, slicnost), ...])."""
-    dopada = [i for i, ocena in oznake.items() if ocena]
+    dopada = pesme_koje_se_dopadaju(rezultati, oznake)
     ne_dopada = [i for i, ocena in oznake.items() if not ocena]
-    if not oznake:
-        dopada = rezultati[:PRETPOSTAVLJENO_DOPADA]
 
     vektor = rocchio(vektor_pesme(tfidf_model, termini_upita),
                      [vektor_pesme(tfidf_model, termini_pesme(i)) for i in dopada],

@@ -588,9 +588,7 @@ elif strana == "Jezicki model":
                 reci_plejliste, pesme = plejlista.napravi_plejlistu(
                     tfidf_model, ind, [termin for _, termin in reci], prikazani, oznake,
                     termini_pesme, porodica_po_id)
-                dopada = [i for i, ocena in oznake.items() if ocena]
-                if not oznake:
-                    dopada = prikazani[:plejlista.PRETPOSTAVLJENO_DOPADA]
+                dopada = plejlista.pesme_koje_se_dopadaju(prikazani, oznake)
                 izvori = [upit] + [katalog_po_id.loc[ind.track_ids[i], "lyrics"] for i in dopada]
                 oblici = isecak.oblici_termina(izvori, {termin for termin, _ in reci_plejliste})
 
@@ -599,9 +597,10 @@ elif strana == "Jezicki model":
                     if not oznake:
                         st.caption(f"Niste oznacili nijednu pesmu, pa je pretpostavljeno da vam se "
                                    f"dopada prvih {plejlista.PRETPOSTAVLJENO_DOPADA} rezultata.")
-                    elif not dopada:
-                        st.caption("Nijedna pesma nije oznacena sa \"Dopada mi se\", "
-                                   "pa se plejlista pravi samo od upita.")
+                    elif not any(oznake.values()):
+                        st.caption(f"Nijedna pesma nije oznacena sa \"Dopada mi se\", pa je pretpostavljeno "
+                                   f"da vam se dopada prvih {plejlista.PRETPOSTAVLJENO_DOPADA} rezultata, "
+                                   f"bez onih koje vam se ne dopadaju.")
                     st.markdown(f"Napravljena na osnovu reci: "
                                 f"{html.escape(', '.join(oblici[t] for t, _ in reci_plejliste))}")
                     if not pesme:
